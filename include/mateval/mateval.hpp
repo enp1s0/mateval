@@ -45,6 +45,65 @@ void iterator_AxB(
 		}
 	}
 }
+
+template <class A_T, class B_T, class REF_T>
+double residual_AxB(
+		const unsigned M, const unsigned N, const unsigned K,
+		const major_t a_major, const major_t b_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const B_T*   const b_ptr, const unsigned ldb,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double base_norm2 = 0.0;
+	double diff_norm2 = 0.0;
+	iterator_AxB(
+			M, N, K,
+			a_major, b_major,
+			a_ptr, lda,
+			b_ptr, ldb,
+			[&](const double c, const unsigned m, const unsigned n) {
+				// load Ref
+				double r;
+				if (r_major == col_major) {
+					r = r_ptr[n * ldr + m];
+				} else {
+					r = r_ptr[m * ldr + n];
+				}
+				const auto diff = r - c;
+				base_norm2 += r * r;
+				diff_norm2 += diff * diff;
+			});
+	return std::sqrt(diff_norm2 / base_norm2);
+}
+
+template <class A_T, class B_T, class REF_T>
+double max_error_AxB(
+		const unsigned M, const unsigned N, const unsigned K,
+		const major_t a_major, const major_t b_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const B_T*   const b_ptr, const unsigned ldb,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double max_error = 0.0;
+	iterator_AxB(
+			M, N, K,
+			a_major, b_major,
+			a_ptr, lda,
+			b_ptr, ldb,
+			[&](const double c, const unsigned m, const unsigned n) {
+				// load Ref
+				double r;
+				if (r_major == col_major) {
+					r = r_ptr[n * ldr + m];
+				} else {
+					r = r_ptr[m * ldr + n];
+				}
+				const auto diff = std::abs(r - c);
+				max_error = std::max(max_error, diff);
+			});
+	return max_error;
+}
+
 } // namespace mateval
 } // namespace mtk
 #endif
