@@ -26,21 +26,21 @@ void test_AxB(
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < K; n++) {
 			const auto index = (a_major == mtk::mateval::col_major ? (m + n * lda) : (m * lda + n));
-			mat_a.get()[index] = n;
+			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<float>(M);
 		}
 	}
 	// Set B
 	for (unsigned m = 0; m < K; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (b_major == mtk::mateval::col_major ? (m + n * ldb) : (m * ldb + n));
-			mat_b.get()[index] = m;
+			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<float>(N);
 		}
 	}
 	// Set ref
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (r_major == mtk::mateval::col_major ? (m + n * ldr) : (m * ldr + n));
-			mat_r.get()[index] = K * (K - 1) * (2 * K - 1) / 6;
+			mat_r.get()[index] = static_cast<double>(K * (K + 1) * (2 * K + 1) / 6) * (m + 1) * (n + 1) / static_cast<double>(M * N);
 			if (!should_be_passed) {
 				mat_r.get()[index] *= -1.0f;
 			}
