@@ -71,7 +71,7 @@ void test_AxB(
 				residual,
 				(residual < 1e-6 ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_error,
-				(max_error < (K * 1e-6) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
+				(max_error < (K * K * 5e-6) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 }
 
