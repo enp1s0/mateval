@@ -13,7 +13,7 @@ enum major_t {
 };
 
 template <class A_T, class B_T, class Func>
-void loop_AxB(
+void foreach_AxB(
 		const unsigned M, const unsigned N, const unsigned K,
 		const major_t a_major, const major_t b_major,
 		const A_T* const a_ptr, const unsigned lda,
@@ -56,7 +56,7 @@ double residual_AxB(
 		) {
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
-	loop_AxB(
+	foreach_AxB(
 			M, N, K,
 			a_major, b_major,
 			a_ptr, lda,
@@ -85,7 +85,7 @@ double max_error_AxB(
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
 	double max_error = 0.0;
-	loop_AxB(
+	foreach_AxB(
 			M, N, K,
 			a_major, b_major,
 			a_ptr, lda,
