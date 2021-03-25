@@ -62,7 +62,8 @@ void test_AxB(
 		mat_b.get(), ldb,
 		mat_r.get(), ldr
 		);
-	std::printf("[test]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s)\n",
+	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s)\n",
+				__func__,
 				M, N, K,
 				lda, ldb, ldr,
 				(a_major == mtk::mateval::col_major ? "col" : "row"),
