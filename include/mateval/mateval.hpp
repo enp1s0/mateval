@@ -13,7 +13,7 @@ enum major_t {
 };
 
 template <class A_T, class B_T, class Func>
-void loop_AxB(
+void foreach_AxB(
 		const unsigned M, const unsigned N, const unsigned K,
 		const major_t a_major, const major_t b_major,
 		const A_T* const a_ptr, const unsigned lda,
@@ -56,7 +56,7 @@ double residual_AxB(
 		) {
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
-	loop_AxB(
+	foreach_AxB(
 			M, N, K,
 			a_major, b_major,
 			a_ptr, lda,
@@ -85,7 +85,7 @@ double max_error_AxB(
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
 	double max_error = 0.0;
-	loop_AxB(
+	foreach_AxB(
 			M, N, K,
 			a_major, b_major,
 			a_ptr, lda,
@@ -101,6 +101,64 @@ double max_error_AxB(
 				const auto diff = std::abs(r - c);
 				max_error = std::max(max_error, diff);
 			});
+	return max_error;
+}
+
+template <class A_T, class REF_T>
+double residual(
+		const unsigned M, const unsigned N,
+		const major_t a_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double base_norm2 = 0.0;
+	double diff_norm2 = 0.0;
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			double r, a;
+			if (r_major == mtk::mateval::col_major) {
+				r = r_ptr[m + n * ldr];
+			} else {
+				r = r_ptr[n + m * ldr];
+			}
+			if (a_major == mtk::mateval::col_major) {
+				a = a_ptr[m + n * lda];
+			} else {
+				a = a_ptr[n + m * lda];
+			}
+			const auto diff = a - r;
+			diff_norm2 += diff * diff;
+			base_norm2 += r * r;
+		}
+	}
+	return std::sqrt(diff_norm2 / base_norm2);
+}
+
+template <class A_T, class REF_T>
+double max_error(
+		const unsigned M, const unsigned N,
+		const major_t a_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double max_error = 0.0;
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			double r, a;
+			if (r_major == mtk::mateval::col_major) {
+				r = r_ptr[m + n * ldr];
+			} else {
+				r = r_ptr[n + m * ldr];
+			}
+			if (a_major == mtk::mateval::col_major) {
+				a = a_ptr[m + n * lda];
+			} else {
+				a = a_ptr[n + m * lda];
+			}
+			const auto diff = a - r;
+			max_error = std::max(max_error, std::abs(diff));
+		}
+	}
 	return max_error;
 }
 
