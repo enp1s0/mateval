@@ -1,6 +1,6 @@
 CXX=g++
 CXXFLAGS=-std=c++14 -I../include
-TARGET=mateval.test
+TARGET=comparison.test
 
 all: $(TARGET)
 
