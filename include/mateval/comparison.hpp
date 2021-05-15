@@ -1,5 +1,5 @@
-#ifndef __MATEVAL_MATEVAL_HPP__
-#define __MATEVAL_MATEVAL_HPP__
+#ifndef __MATEVAL_COMPARISON_HPP__
+#define __MATEVAL_COMPARISON_HPP__
 
 #include <algorithm>
 #include <cmath>
