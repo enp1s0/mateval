@@ -71,7 +71,7 @@ double residual_AxB(
 					r = r_ptr[m * ldr + n];
 				}
 				const auto diff = r - c;
-				base_norm2 += r * r;
+				base_norm2 += c * c;
 				diff_norm2 += diff * diff;
 			});
 	return std::sqrt(diff_norm2 / base_norm2);
@@ -161,7 +161,7 @@ double residual(
 			}
 			const auto diff = a - r;
 			diff_norm2 += diff * diff;
-			base_norm2 += r * r;
+			base_norm2 += a * a;
 		}
 	}
 	return std::sqrt(diff_norm2 / base_norm2);
