@@ -3,14 +3,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common.hpp"
 
 namespace mtk {
 namespace mateval {
-
-enum major_t {
-	col_major = 0,
-	row_major = 1,
-};
 
 template <class A_T, class B_T, class Func>
 void foreach_AxB(
