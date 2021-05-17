@@ -2,6 +2,9 @@
 #include <memory>
 #include <mateval/mateval.hpp>
 
+const std::size_t matrix_dim = 1000;
+const std::size_t matrix_ld  = 1200;
+
 void test_AxB(
 	const unsigned M,
 	const unsigned N,
@@ -130,29 +133,29 @@ void test_A(
 
 int main() {
 	std::printf("----------- Should be passed -----------\n");
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, 200, 200, 200, true);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, 200, 200, 200, true);
-	test_A(160, 160, mtk::mateval::col_major, mtk::mateval::col_major, 200, 200, true);
-	test_A(160, 160, mtk::mateval::row_major, mtk::mateval::col_major, 200, 200, true);
-	test_A(160, 160, mtk::mateval::col_major, mtk::mateval::row_major, 200, 200, true);
-	test_A(160, 160, mtk::mateval::row_major, mtk::mateval::row_major, 200, 200, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
 	std::printf("--------- Should be failed ---------\n");
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, 200, 200, 200, false);
-	test_AxB(160, 160, 160, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, 200, 200, 200, false);
-	test_A(160, 160, mtk::mateval::col_major, mtk::mateval::col_major, 200, 200, false);
-	test_A(160, 160, mtk::mateval::row_major, mtk::mateval::col_major, 200, 200, false);
-	test_A(160, 160, mtk::mateval::col_major, mtk::mateval::row_major, 200, 200, false);
-	test_A(160, 160, mtk::mateval::row_major, mtk::mateval::row_major, 200, 200, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, false);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, false);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, false);
+	test_A(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, false);
 }
