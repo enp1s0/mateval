@@ -88,8 +88,8 @@ void test_A(
 	const unsigned ldr,
 	const bool should_be_passed
 	) {
-	const std::size_t a_mem_size = lda * N;
-	const std::size_t r_mem_size = ldr * N;
+	const std::size_t a_mem_size = (a_major == mtk::mateval::col_major ? N : M) * lda;
+	const std::size_t r_mem_size = (r_major == mtk::mateval::col_major ? N : M) * ldr;
 
 	auto mat_a = std::unique_ptr<float[]>(new float [a_mem_size]);
 	auto mat_r = std::unique_ptr<double[]>(new double [r_mem_size]);
@@ -125,9 +125,9 @@ void test_A(
 				(a_major == mtk::mateval::col_major ? "col" : "row"),
 				(r_major == mtk::mateval::col_major ? "col" : "row"),
 				residual,
-				(residual < 1e-6 ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
+				((residual < 1e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_error,
-				(max_error < 5e-6 ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
+				((max_error < 5e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 }
 
