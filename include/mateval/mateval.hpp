@@ -23,7 +23,7 @@ void foreach_AxB(
 		) {
 #pragma omp parallel for collapse(2)
 	for (unsigned m = 0; m < M; m++) {
-		for (unsigned n = 0; n < M; n++) {
+		for (unsigned n = 0; n < N; n++) {
 			double c = 0.0;
 			for (unsigned k = 0; k < K; k++) {
 				// load A
