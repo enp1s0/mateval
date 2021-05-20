@@ -1,17 +1,13 @@
-#ifndef __MATEVAL_MATEVAL_HPP__
-#define __MATEVAL_MATEVAL_HPP__
+#ifndef __MATEVAL_COMPARISON_HPP__
+#define __MATEVAL_COMPARISON_HPP__
 
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include "common.hpp"
 
 namespace mtk {
 namespace mateval {
-
-enum major_t {
-	col_major = 0,
-	row_major = 1,
-};
 
 template <class A_T, class B_T, class Func>
 void foreach_AxB(
