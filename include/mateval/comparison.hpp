@@ -17,8 +17,9 @@ void foreach_AxB(
 		const B_T* const b_ptr, const unsigned ldb,
 		const Func func
 		) {
+#pragma omp parallel for collapse(2)
 	for (unsigned m = 0; m < M; m++) {
-		for (unsigned n = 0; n < M; n++) {
+		for (unsigned n = 0; n < N; n++) {
 			double c = 0.0;
 			for (unsigned k = 0; k < K; k++) {
 				// load A
@@ -38,7 +39,8 @@ void foreach_AxB(
 				}
 				c += a * b;
 			}
-			func(c, m, n);
+#pragma omp critical
+			{func(c, m, n);}
 		}
 	}
 }
@@ -142,6 +144,7 @@ double residual(
 		) {
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
+#pragma omp parallel for collapse(2) reduction(+: base_norm2) reduction(+: diff_norm2)
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			double r, a;
@@ -171,6 +174,7 @@ double max_error(
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
 	double max_error = 0.0;
+#pragma omp parallel for collapse(2) reduction(max: max_error)
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			double r, a;
@@ -201,6 +205,7 @@ std::tuple<double, double> max_error_and_residual(
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
 	double max_error = 0.0;
+#pragma omp parallel for collapse(2) reduction(max: max_error) reduction(+: base_norm2) reduction(+: diff_norm2)
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			double r, a;
