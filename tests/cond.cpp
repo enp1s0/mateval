@@ -4,7 +4,7 @@
 #include <mateval/cond.hpp>
 
 template <class T>
-void cond_dense_test(const unsigned m, const unsigned n) {
+void cond_dense_test(const unsigned m, const unsigned n, const char norm_mode) {
 	auto a_uptr = std::unique_ptr<T[]>(new T[m * n]);
 
 	std::mt19937 mt(0);
@@ -14,12 +14,14 @@ void cond_dense_test(const unsigned m, const unsigned n) {
 		a_uptr.get()[i] = dist(mt);
 	}
 
-	const auto cond = mtk::mateval::cond(m, n, mtk::mateval::col_major, a_uptr.get(), m);
+	const auto cond = mtk::mateval::cond(m, n, mtk::mateval::col_major, a_uptr.get(), m, norm_mode);
 
-	std::printf("cond = %e\n", cond);
+	std::printf("m = %u, n = %u, norm = %c, cond = %e\n", m, n, norm_mode, cond);
 }
 
 int main() {
-	cond_dense_test<float >(1u << 10, 1u << 10);
-	cond_dense_test<double>(1u << 10, 1u << 10);
+	cond_dense_test<float >(1u << 10, 1u << 10, mtk::mateval::norm_1);
+	cond_dense_test<double>(1u << 10, 1u << 10, mtk::mateval::norm_1);
+	cond_dense_test<float >(1u << 10, 1u << 10, mtk::mateval::norm_infinity);
+	cond_dense_test<double>(1u << 10, 1u << 10, mtk::mateval::norm_infinity);
 }
