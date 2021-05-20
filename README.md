@@ -31,7 +31,7 @@ const auto max_error = mtk::mateval::max_error_AxB(
 
 - Calculate a condition number
 ```cpp
-// g++ -I/path/to/mateval/include ...
+// g++ -I/path/to/mateval/include ... -llapacke -llapack -lblas -lgfortran
 #include <mateval/cond.hpp>
 const auto a_major = mtk::mateval::col_major;
 
