@@ -1,7 +1,6 @@
 CXX=g++
 CXXFLAGS=-std=c++14 -I../include -fopenmp
 TARGET=comparison.test cond.test
-TARGET=mateval.test
 
 all: $(TARGET)
 
