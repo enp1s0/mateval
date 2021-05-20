@@ -10,13 +10,16 @@
 namespace mtk {
 namespace mateval {
 
+static const char norm_1 = '1';
+static const char norm_infinity = 'I';
+
 template <class T>
 double cond(
 		const unsigned m, const unsigned n,
 		const mtk::mateval::major_t a_major,
 		const T* const a_ptr, const unsigned lda,
 		double* const dp_working_memory,
-		const double zero_threshold_ratio = 1e-14
+		const char norm_mode = mtk::mateval::norm_1
 		) {
 	// dp_a is a m x n col major fouble precision matrix
 	auto dp_a_ptr = dp_working_memory;
@@ -35,11 +38,13 @@ double cond(
 		}
 	}
 
-	const auto a_norm = LAPACKE_dlange(LAPACK_COL_MAJOR, '1', m, n, dp_a_ptr, m);
+	const auto a_norm = LAPACKE_dlange(LAPACK_COL_MAJOR, norm_mode, m, n, dp_a_ptr, m);
+	auto ipiv_uptr = std::unique_ptr<int[]>(new int[m]);
+	LAPACKE_dgetrf(LAPACK_COL_MAJOR, m, n, dp_a_ptr, m, ipiv_uptr.get());
 	double c;
-	const auto res = LAPACKE_dgecon(LAPACK_COL_MAJOR, '1', std::min(m, n), dp_a_ptr, m, a_norm, &c);
+	const auto res = LAPACKE_dgecon(LAPACK_COL_MAJOR, norm_mode, std::min(m, n), dp_a_ptr, m, a_norm, &c);
 
-	return c;
+	return 1. / c;
 }
 
 inline unsigned get_cond_working_mem_size(const unsigned m, const unsigned n) {
