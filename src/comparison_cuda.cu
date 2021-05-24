@@ -17,9 +17,9 @@ __global__ void max_error_kernel(
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
 	double sum = 0.0;
-	double diff;
+	double diff = 0.0;
 
-	if (tid <= M * N) {
+	if (tid < M * N) {
 		const auto row = tid % M;
 		const auto col = tid / M;
 
@@ -81,10 +81,10 @@ __global__ void residual_kernel(
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
 	double sum = 0.0;
-	double diff;
-	double base;
+	double diff = 0.0;
+	double base = 0.0;
 
-	if (tid <= M * N) {
+	if (tid < M * N) {
 		const auto row = tid % M;
 		const auto col = tid / M;
 
@@ -152,11 +152,11 @@ __global__ void max_error_and_residual_kernel(
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
 	double sum = 0.0;
-	double diff;
-	double base;
-	double diff_abs;
+	double diff = 0.0;
+	double base = 0.0;
+	double diff_abs = 0.0;
 
-	if (tid <= M * N) {
+	if (tid < M * N) {
 		const auto row = tid % M;
 		const auto col = tid / M;
 
@@ -231,6 +231,10 @@ double mtk::mateval::cuda::residual_AxB(
 	double *h_diff;
 	cudaMallocHost(&h_base, grid_size * sizeof(double));
 	cudaMallocHost(&h_diff, grid_size * sizeof(double));
+	for (unsigned i = 0; i < grid_size; i++) {
+		h_diff[i] = 0.;
+		h_base[i] = 0.;
+	}
 
 	residual_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
 			h_diff, h_base,
@@ -273,6 +277,9 @@ double mtk::mateval::cuda::max_error_AxB(
 
 	double *h_max_errors;
 	cudaMallocHost(&h_max_errors, grid_size * sizeof(double));
+	for (unsigned i = 0; i < grid_size; i++) {
+		h_max_errors[i] = 0.;
+	}
 
 	max_error_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
 			h_max_errors,
@@ -316,6 +323,11 @@ std::tuple<double, double> mtk::mateval::cuda::max_error_and_residual_AxB(
 	cudaMallocHost(&h_base, grid_size * sizeof(double));
 	cudaMallocHost(&h_diff, grid_size * sizeof(double));
 	cudaMallocHost(&h_max_error, grid_size * sizeof(double));
+	for (unsigned i = 0; i < grid_size; i++) {
+		h_diff[i] = 0.;
+		h_base[i] = 0.;
+		h_max_error[i] = 0.;
+	}
 
 	max_error_and_residual_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
 			h_max_error,
