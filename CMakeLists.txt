@@ -26,7 +26,7 @@ set(LIBDIR lib)
 
 # Source files
 file(GLOB SRCS "${SRCDIR}/*.cu")
-file(GLOB HEADERS "${INCDIR}/*.hpp")
+file(GLOB HEADERS "${INCDIR}/mateval/*.hpp")
 
 add_library(mateval_cuda STATIC
 	${SRCS}
@@ -41,6 +41,16 @@ set_target_properties(mateval_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 # Output
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${LIBDIR})
+
+##########################################################################
+# Installing
+##########################################################################
+install(TARGETS mateval_cuda
+	LIBRARY DESTINATION lib
+	PUBLIC_HEADER DESTINATION include/mateval
+	)
+install(FILES ${HEADERS}
+        DESTINATION include/mateval)
 
 ##########################################################################
 # Test
