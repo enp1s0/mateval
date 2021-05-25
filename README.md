@@ -41,5 +41,42 @@ const auto cond = mtk::mateval::cond(
     );
 ```
 
+## CUDA Extensions
+1. Build the CUDA extension library
+```bash
+mkdir build
+cd build
+cmake ..
+make -j8
+```
+
+2. Link to your application
+```cpp
+// g++ -I/path/to/mateval/include -L/path/to/libmateval_cuda.a -lmateval_cuda ...
+#include <mateval/comparison.hpp>
+const auto a_major = mtk::mateval::col_major;
+const auto b_major = mtk::mateval::col_major;
+const auto r_major = mtk::mateval::col_major;
+
+// Evaluation of residual
+const auto residual = mtk::mateval::cuda::residual_AxB(
+    M, N, K,
+    a_major, b_major, r_major,
+    mat_a, lda,
+    mat_b, ldb,
+    mat_ref, ldr
+    );
+
+// Evaluation of max_error
+const auto max_error = mtk::mateval::cuda::max_error_AxB(
+    M, N, K,
+    a_major, b_major, r_major,
+    mat_a, lda,
+    mat_b, ldb,
+    mat_ref, ldr
+    );
+```
+
+
 ## License
 MIT
