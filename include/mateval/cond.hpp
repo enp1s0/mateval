@@ -56,7 +56,7 @@ double cond(
 		const unsigned m, const unsigned n,
 		const mtk::mateval::major_t a_major,
 		const T* const a_ptr, const unsigned lda,
-		const double zero_threshold_ratio = 1e-14
+		const char norm_mode = mtk::mateval::norm_1
 		) {
 	std::unique_ptr<double[]> working_memory(new double [get_cond_working_mem_size(m, n)]);
 	const auto c = cond(
@@ -64,7 +64,7 @@ double cond(
 			a_major,
 			a_ptr, lda,
 			working_memory.get(),
-			zero_threshold_ratio
+			norm_mode
 			);
 	return c;
 }
