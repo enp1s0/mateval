@@ -467,7 +467,7 @@ double mtk::mateval::cuda::max_relative_error_AxB(
 		h_max_relative_errors[i] = 0.;
 	}
 
-	max_error_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
+	max_relative_error_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
 			h_max_relative_errors,
 			M, N, K,
 			a_major, b_major, r_major,
