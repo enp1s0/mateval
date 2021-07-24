@@ -1,6 +1,8 @@
 CXX=g++
 CXXFLAGS=-std=c++14 -I../include -fopenmp
-TARGET=comparison.test cond.test
+NVCC=nvcc
+NVCCFLAGS=-std=c++14 -Xcompiler="${CXXFLAGS}" -L../build -lmateval_cuda -arch=sm_80
+TARGET=comparison.test cond.test cuda.test
 
 all: $(TARGET)
 
@@ -10,6 +12,8 @@ all: $(TARGET)
 cond.test:cond.cpp
 	$(CXX) $< $(CXXFLAGS) -llapacke -llapack -lblas -lgfortran -o $@
 
+%.test:%.cu
+	$(NVCC) $< $(NVCCFLAGS) -o $@
 
 clean:
 	rm *.test

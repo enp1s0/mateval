@@ -75,7 +75,15 @@ void test_AxB(
 		db, ldb,
 		dr, ldr
 		);
-	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s)\n",
+
+	const auto max_relative_error = mtk::mateval::cuda::max_relative_error_AxB(
+		M, N, K,
+		a_major, b_major, r_major,
+		da, lda,
+		db, ldb,
+		dr, ldr
+		);
+	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
 				__func__,
 				M, N, K,
 				lda, ldb, ldr,
@@ -85,7 +93,9 @@ void test_AxB(
 				residual,
 				((residual < 1e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_error,
-				((max_error < (K * K * K * 5e-8) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
+				((max_error < (K * K * K * 5e-8) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
+				max_relative_error,
+				((max_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 
 	cudaFree(da);
