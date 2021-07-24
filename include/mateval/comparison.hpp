@@ -46,6 +46,44 @@ void foreach_AxB(
 	}
 }
 
+template <class A_T, class B_T, class Func>
+void foreach_AxB_with_abs(
+		const unsigned M, const unsigned N, const unsigned K,
+		const major_t a_major, const major_t b_major,
+		const A_T* const a_ptr, const unsigned lda,
+		const B_T* const b_ptr, const unsigned ldb,
+		const Func func
+		) {
+#pragma omp parallel for collapse(2)
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			double c = 0.0;
+			double abs_c = 0.0;
+			for (unsigned k = 0; k < K; k++) {
+				// load A
+				double a;
+				if (a_major == col_major) {
+					a = a_ptr[k * lda + m];
+				} else {
+					a = a_ptr[m * lda + k];
+				}
+
+				// load B
+				double b;
+				if (b_major == col_major) {
+					b = b_ptr[k + ldb * n];
+				} else {
+					b = b_ptr[k * ldb + n];
+				}
+				c += a * b;
+				abs_c += std::abs(a) * std::abs(b);
+			}
+#pragma omp critical
+			{func(c, abs_c, m, n);}
+		}
+	}
+}
+
 template <class A_T, class B_T, class REF_T>
 double residual_AxB(
 		const unsigned M, const unsigned N, const unsigned K,
@@ -102,6 +140,34 @@ double max_error_AxB(
 				max_error = std::max(max_error, diff);
 			});
 	return max_error;
+}
+
+template <class A_T, class B_T, class REF_T>
+double max_relative_error_AxB(
+		const unsigned M, const unsigned N, const unsigned K,
+		const major_t a_major, const major_t b_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const B_T*   const b_ptr, const unsigned ldb,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double max_relative_error = 0.0;
+	foreach_AxB_with_abs(
+			M, N, K,
+			a_major, b_major,
+			a_ptr, lda,
+			b_ptr, ldb,
+			[&](const double c, const double abs_c, const unsigned m, const unsigned n) {
+				// load Ref
+				double r;
+				if (r_major == col_major) {
+					r = r_ptr[n * ldr + m];
+				} else {
+					r = r_ptr[m * ldr + n];
+				}
+				const auto relative_error = std::abs((r - c) / abs_c);
+				max_relative_error = std::max(max_relative_error, relative_error);
+			});
+	return max_relative_error;
 }
 
 template <class A_T, class B_T, class REF_T>
