@@ -27,6 +27,16 @@ const auto max_error = mtk::mateval::max_error_AxB(
     mat_b, ldb,
     mat_ref, ldr
     );
+
+// Evaluation of max_relative_error
+// max_i,j |C_ref - C_target|_i,j / (|A||B|)_ij
+const auto max_error = mtk::mateval::max_relative_error_AxB(
+    M, N, K,
+    a_major, b_major, r_major,
+    mat_a, lda,
+    mat_b, ldb,
+    mat_ref, ldr
+    );
 ```
 
 - Calculate a condition number
@@ -69,6 +79,15 @@ const auto residual = mtk::mateval::cuda::residual_AxB(
 
 // Evaluation of max_error
 const auto max_error = mtk::mateval::cuda::max_error_AxB(
+    M, N, K,
+    a_major, b_major, r_major,
+    mat_a, lda,
+    mat_b, ldb,
+    mat_ref, ldr
+    );
+
+// Evaluation of max_relative_error
+const auto max_error = mtk::mateval::cuda::max_relative_error_AxB(
     M, N, K,
     a_major, b_major, r_major,
     mat_a, lda,
