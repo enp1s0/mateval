@@ -150,13 +150,14 @@ double max_relative_error_AxB(
 		const B_T*   const b_ptr, const unsigned ldb,
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
-	double max_relative_error = 0.0;
-	foreach_AxB_with_abs(
+	double max_error = 0.0;
+	double max_element = 0.0;
+	foreach_AxB(
 			M, N, K,
 			a_major, b_major,
 			a_ptr, lda,
 			b_ptr, ldb,
-			[&](const double c, const double abs_c, const unsigned m, const unsigned n) {
+			[&](const double c, const unsigned m, const unsigned n) {
 				// load Ref
 				double r;
 				if (r_major == col_major) {
@@ -164,10 +165,10 @@ double max_relative_error_AxB(
 				} else {
 					r = r_ptr[m * ldr + n];
 				}
-				const auto relative_error = std::abs((r - c) / abs_c);
-				max_relative_error = std::max(max_relative_error, relative_error);
+				max_error = std::max(std::abs(r - c), max_error);
+				max_element = std::max(std::abs(c), max_element);
 			});
-	return max_relative_error;
+	return max_error / max_element;
 }
 
 template <class A_T, class B_T, class REF_T>
@@ -210,15 +211,16 @@ std::tuple<double, double> max_relative_error_and_residual_AxB(
 		const B_T*   const b_ptr, const unsigned ldb,
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
-	double max_relative_error = 0.0;
+	double max_error = 0.0;
+	double max_element = 0.0;
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
-	foreach_AxB_with_abs(
+	foreach_AxB(
 			M, N, K,
 			a_major, b_major,
 			a_ptr, lda,
 			b_ptr, ldb,
-			[&](const double c, const double c_abs, const unsigned m, const unsigned n) {
+			[&](const double c, const unsigned m, const unsigned n) {
 				// load Ref
 				double r;
 				if (r_major == col_major) {
@@ -227,11 +229,12 @@ std::tuple<double, double> max_relative_error_and_residual_AxB(
 					r = r_ptr[m * ldr + n];
 				}
 				const auto diff = std::abs(r - c);
-				max_relative_error = std::max(max_relative_error, diff / c_abs);
+				max_error = std::max(std::abs(max_error), diff);
+				max_element = std::max(std::abs(max_element), c);
 				base_norm2 += c * c;
 				diff_norm2 += diff * diff;
 			});
-	return std::make_tuple(max_relative_error, std::sqrt(diff_norm2 / base_norm2));
+	return std::make_tuple(max_error / max_element, std::sqrt(diff_norm2 / base_norm2));
 }
 
 template <class A_T, class REF_T>

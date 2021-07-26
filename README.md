@@ -29,7 +29,7 @@ const auto max_error = mtk::mateval::max_error_AxB(
     );
 
 // Evaluation of max_relative_error
-// max_i,j |C_ref - C_target|_i,j / (|A||B|)_ij
+// max_i,j |C_ref - C_target|_i,j / max_i,j |C_ref|_i,j
 const auto max_error = mtk::mateval::max_relative_error_AxB(
     M, N, K,
     a_major, b_major, r_major,
