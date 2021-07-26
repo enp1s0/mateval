@@ -70,7 +70,8 @@ __global__ void max_error_kernel(
 
 template <class A_T, class B_T, class R_T>
 __global__ void max_relative_error_kernel(
-		double* const max_relative_error,
+		double* const max_error,
+		double* const max_element,
 		const unsigned M, const unsigned N, const unsigned K,
 		const mtk::mateval::major_t a_major, const mtk::mateval::major_t b_major, const mtk::mateval::major_t r_major,
 		const A_T* const a_ptr, const unsigned lda,
@@ -80,8 +81,8 @@ __global__ void max_relative_error_kernel(
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
 	double sum = 0.0;
-	double sum_abs = 0.0;
-	double relative_error = 0.0;
+	double error = 0.0;
+	double element = 0.0;
 
 	if (tid < M * N) {
 		const auto row = tid % M;
@@ -105,7 +106,6 @@ __global__ void max_relative_error_kernel(
 			const auto da = static_cast<double>(a_ptr[a_index]);
 			const auto db = static_cast<double>(b_ptr[b_index]);
 			sum = fma(da, db, sum);
-			sum_abs = fma(abs(da), abs(db), sum_abs);
 		}
 
 		std::size_t r_index;
@@ -115,22 +115,27 @@ __global__ void max_relative_error_kernel(
 			r_index = col + row * ldr;
 		}
 
-		relative_error = abs((sum - static_cast<double>(r_ptr[r_index])) / sum_abs);
+		error = abs(sum - static_cast<double>(r_ptr[r_index]));
+		element = abs(sum);
 	}
 
-	__shared__ double smem[block_size];
-	smem[threadIdx.x] = relative_error;
+	__shared__ double smem_error[block_size];
+	__shared__ double smem_element[block_size];
+	smem_error[threadIdx.x] = error;
+	smem_element[threadIdx.x] = element;
 
 	__syncthreads();
 	for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
 		if (threadIdx.x < i) {
 			const auto i0 = threadIdx.x;
 			const auto i1 = i0 + i;
-			smem[i0] = max(smem[i0], smem[i1]);
+			smem_error[i0] = max(smem_error[i0], smem_error[i1]);
+			smem_element[i0] = max(smem_element[i0], smem_element[i1]);
 		}
 		__syncthreads();
 	}
-	max_relative_error[blockIdx.x] = smem[0];
+	max_error[blockIdx.x] = smem_error[0];
+	max_element[blockIdx.x] = smem_element[0];
 }
 
 template <class A_T, class B_T, class R_T>
@@ -282,7 +287,8 @@ __global__ void max_error_and_residual_kernel(
 
 template <class A_T, class B_T, class R_T>
 __global__ void max_relative_error_and_residual_kernel(
-		double* const max_relative_error,
+		double* const max_error,
+		double* const max_element,
 		double* const diff_norm,
 		double* const base_norm,
 		const unsigned M, const unsigned N, const unsigned K,
@@ -297,7 +303,8 @@ __global__ void max_relative_error_and_residual_kernel(
 	double sum_abs = 0.0;
 	double diff = 0.0;
 	double base = 0.0;
-	double relative_error = 0.0;
+	double error = 0.0;
+	double element = 0.0;
 
 	if (tid < M * N) {
 		const auto row = tid % M;
@@ -333,15 +340,18 @@ __global__ void max_relative_error_and_residual_kernel(
 
 		base = r_ptr[r_index];
 		diff = sum - base;
-		relative_error = abs(diff / sum_abs);
+		error = abs(diff);
+		element = abs(sum);
 	}
 
 	__shared__ double smem_diff[block_size];
 	__shared__ double smem_base[block_size];
-	__shared__ double smem_relative_error[block_size];
+	__shared__ double smem_error[block_size];
+	__shared__ double smem_element[block_size];
 	smem_diff[threadIdx.x] = diff * diff;
 	smem_base[threadIdx.x] = base * base;
-	smem_relative_error[threadIdx.x] = relative_error;
+	smem_error[threadIdx.x] = error;
+	smem_element[threadIdx.x] = element;
 
 	__syncthreads();
 	for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -350,13 +360,15 @@ __global__ void max_relative_error_and_residual_kernel(
 			const auto i1 = i0 + i;
 			smem_base[i0] += smem_base[i1];
 			smem_diff[i0] += smem_diff[i1];
-			smem_relative_error[i0] = max(smem_relative_error[i0], smem_relative_error[i1]);
+			smem_error[i0] = max(smem_error[i0], smem_error[i1]);
+			smem_element[i0] = max(smem_element[i0], smem_element[i1]);
 		}
 		__syncthreads();
 	}
 	diff_norm[blockIdx.x] = smem_diff[0];
 	base_norm[blockIdx.x] = smem_base[0];
-	max_relative_error[blockIdx.x] = smem_relative_error[0];
+	max_error[blockIdx.x] = smem_error[0];
+	max_element[blockIdx.x] = smem_element[0];
 }
 } // noname namespace
 
@@ -461,14 +473,18 @@ double mtk::mateval::cuda::max_relative_error_AxB(
 	const auto num_threads = M * N;
 	const auto grid_size = (num_threads + block_size - 1) / block_size;
 
-	double *h_max_relative_errors;
-	cudaMallocHost(&h_max_relative_errors, grid_size * sizeof(double));
+	double *h_max_error;
+	double *h_max_element;
+	cudaMallocHost(&h_max_error, grid_size * sizeof(double));
+	cudaMallocHost(&h_max_element, grid_size * sizeof(double));
 	for (unsigned i = 0; i < grid_size; i++) {
-		h_max_relative_errors[i] = 0.;
+		h_max_error[i] = 0.;
+		h_max_element[i] = 0.;
 	}
 
 	max_relative_error_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
-			h_max_relative_errors,
+			h_max_error,
+			h_max_element,
 			M, N, K,
 			a_major, b_major, r_major,
 			a_ptr, lda,
@@ -477,15 +493,18 @@ double mtk::mateval::cuda::max_relative_error_AxB(
 			);
 	cudaDeviceSynchronize();
 
-	double max_relative_error = 0.0;
+	double max_error = 0.0;
+	double max_element = 0.0;
 #pragma omp parallel for reduction(max: max_error)
 	for (unsigned i = 0; i < grid_size; i++) {
-		max_relative_error = std::max(max_relative_error, h_max_relative_errors[i]);
+		max_error = std::max(max_error, h_max_error[i]);
+		max_element = std::max(max_element, h_max_element[i]);
 	}
 
-	cudaFreeHost(h_max_relative_errors);
+	cudaFreeHost(h_max_error);
+	cudaFreeHost(h_max_element);
 
-	return max_relative_error;
+	return max_error / max_element;
 }
 
 template double mtk::mateval::cuda::max_relative_error_AxB<half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const unsigned, const half  * const, const unsigned);
@@ -560,18 +579,21 @@ std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_A
 
 	double *h_base;
 	double *h_diff;
-	double *h_max_relative_error;
+	double *h_max_error;
+	double *h_max_element;
 	cudaMallocHost(&h_base, grid_size * sizeof(double));
 	cudaMallocHost(&h_diff, grid_size * sizeof(double));
-	cudaMallocHost(&h_max_relative_error, grid_size * sizeof(double));
+	cudaMallocHost(&h_max_error, grid_size * sizeof(double));
+	cudaMallocHost(&h_max_element, grid_size * sizeof(double));
 	for (unsigned i = 0; i < grid_size; i++) {
 		h_diff[i] = 0.;
 		h_base[i] = 0.;
-		h_max_relative_error[i] = 0.;
+		h_max_error[i] = 0.;
+		h_max_element[i] = 0.;
 	}
 
 	max_relative_error_and_residual_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
-			h_max_relative_error,
+			h_max_error, h_max_element,
 			h_diff, h_base,
 			M, N, K,
 			a_major, b_major, r_major,
@@ -581,21 +603,24 @@ std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_A
 			);
 	cudaDeviceSynchronize();
 
-	double max_relative_error = 0.0;
+	double max_error = 0.0;
+	double max_element = 0.0;
 	double base_norm = 0.0;
 	double diff_norm = 0.0;
 #pragma omp parallel for reduction(+: base_norm) reduction(+: diff_norm) reduction(max: max_error)
 	for (unsigned i = 0; i < grid_size; i++) {
 		base_norm += h_base[i];
 		diff_norm += h_diff[i];
-		max_relative_error = std::max(max_relative_error, h_max_relative_error[i]);
+		max_error = std::max(max_error, h_max_error[i]);
+		max_element = std::max(max_element, h_max_element[i]);
 	}
 
 	cudaFreeHost(h_base);
 	cudaFreeHost(h_diff);
-	cudaFreeHost(h_max_relative_error);
+	cudaFreeHost(h_max_element);
+	cudaFreeHost(h_max_error);
 
-	return std::tuple<double, double>(max_relative_error, std::sqrt(diff_norm / base_norm));
+	return std::tuple<double, double>(max_error / max_element, std::sqrt(diff_norm / base_norm));
 }
 
 template std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_AxB<half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const unsigned, const half  * const, const unsigned);
