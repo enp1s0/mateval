@@ -6,8 +6,10 @@ namespace mtk {
 namespace mateval {
 namespace cuda {
 // working memory space
-static const int device_memory = 1;
-static const int host_memory = 2;
+enum memory_type {
+	device_memory = 1,
+	host_memory = 2
+};
 
 //             +-------------+
 //             |             |
@@ -34,7 +36,7 @@ void latms(
 		T* const d,
 		const unsigned rank,
 		const unsigned long long seed,
-		const int working_memory_type = device_memory,
+		const memory_type working_memory_type = device_memory,
 		cudaStream_t cuda_stream = 0
 		);
 } // namespace cuda
