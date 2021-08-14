@@ -86,20 +86,19 @@ __global__ void multiply_usvt(
 } // noname namespace
 
 template <class T>
-void mtk::mateval::latms(
+void mtk::mateval::cuda::latms(
 		T* const dst_ptr,
 		const unsigned m,
 		const unsigned n,
 		T* const d,
 		const unsigned rank,
 		const unsigned long long seed,
-		T* const work_ptr,
 		const int working_memory,
 		cudaStream_t cuda_stream
 		) {
 	// Allocate working memory
 	T *mat_u, *mat_v, *diag_s, *tau;
-	if (working_memory == mtk::mateval::device_memory) {
+	if (working_memory == mtk::mateval::cuda::device_memory) {
 		cudaMalloc(&mat_u , sizeof(T) * m * rank);
 		cudaMalloc(&mat_v , sizeof(T) * n * rank);
 		cudaMalloc(&diag_s, sizeof(T) * rank);
@@ -150,7 +149,7 @@ void mtk::mateval::latms(
 
 	T* qr_work;
 	int* qr_info;
-	if (working_memory == mtk::mateval::device_memory) {
+	if (working_memory == mtk::mateval::cuda::device_memory) {
 		cudaMalloc(&qr_work, sizeof(T) * max_lwork);
 		cudaMalloc(&qr_info, sizeof(int));
 	} else {
@@ -186,7 +185,7 @@ void mtk::mateval::latms(
 	cusolverDnDestroy(cusolver_handle);
 
 	// Free working memory
-	if (working_memory == mtk::mateval::device_memory) {
+	if (working_memory == mtk::mateval::cuda::device_memory) {
 		cudaFree(qr_work);
 		cudaFree(qr_info);
 	} else {
@@ -208,7 +207,7 @@ void mtk::mateval::latms(
 			mat_u,mat_v 
 			);
 
-	if (working_memory == mtk::mateval::device_memory) {
+	if (working_memory == mtk::mateval::cuda::device_memory) {
 		cudaFree(mat_u);
 		cudaFree(mat_v);
 		cudaFree(diag_s);
@@ -221,5 +220,5 @@ void mtk::mateval::latms(
 	}
 }
 
-template void mtk::mateval::latms<float >( float* const, const unsigned, const unsigned, float * const, const unsigned rank, const unsigned long long seed, float * const work_ptr, const int working_memory_type, cudaStream_t cuda_stream);
-template void mtk::mateval::latms<double>(double* const, const unsigned, const unsigned, double* const, const unsigned rank, const unsigned long long seed, double* const work_ptr, const int working_memory_type, cudaStream_t cuda_stream);
+template void mtk::mateval::cuda::latms<float >( float* const, const unsigned, const unsigned, float * const, const unsigned, const unsigned long long, const int, cudaStream_t);
+template void mtk::mateval::cuda::latms<double>(double* const, const unsigned, const unsigned, double* const, const unsigned, const unsigned long long, const int, cudaStream_t);
