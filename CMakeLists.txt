@@ -4,6 +4,7 @@ project(mateval_cuda LANGUAGES CXX CUDA)
 find_package(CUDA 10.0 REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP)
+find_package(LAPACK)
 
 # CUDA/CXX
 foreach(lang CXX CUDA)
@@ -35,6 +36,11 @@ add_library(mateval_cuda STATIC
 
 # Include directories
 target_include_directories(mateval_cuda PUBLIC ${INCDIR})
+target_link_libraries(mateval_cuda PRIVATE
+	CUDA::cublas
+	CUDA::cusolver
+	CUDA::curand
+	)
 
 # CUDA (2/2)
 set_target_properties(mateval_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -71,3 +77,19 @@ foreach(test cuda)
 		target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
 	endif()
 endforeach()
+
+if(LAPACK_FOUND)
+	foreach(test cuda_latms)
+		set(test_out ${test}.test)
+		add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
+		target_include_directories(${test_out} PRIVATE ${INCDIR})
+		target_link_libraries(${test_out} PRIVATE mateval_cuda)
+		target_link_libraries(${test_out} PRIVATE
+			CUDA::cublas
+			LAPACK::LAPACK
+			)
+		if (OpenMP_CXX_FOUND)
+			target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
+		endif()
+	endforeach()
+endif()
