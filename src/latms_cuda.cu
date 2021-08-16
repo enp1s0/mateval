@@ -52,8 +52,10 @@ constexpr unsigned block_size = 256;
 
 template <class OUTPUT_T, class S_T, class TMP_T>
 __global__ void multiply_usvt(
-		OUTPUT_T* const out_ptr,
 		const unsigned m, const unsigned n,
+		mtk::mateval::major_t major,
+		OUTPUT_T* const out_ptr,
+		const unsigned ldm,
 		const S_T *s_ptr,
 		const unsigned rank,
 		const TMP_T* u_ptr,
@@ -73,23 +75,36 @@ __global__ void multiply_usvt(
 	if (tid >= m * n) {
 		return;
 	}
+
+	unsigned i = 0;
+	unsigned j = 0;
+	unsigned gmem_index = 0;
 	
-	const auto i = tid % m;
-	const auto j = tid / m;
+	if (major == mtk::mateval::col_major) {
+		i = tid % m;
+		j = tid / m;
+		gmem_index = i + j * ldm;
+	} else {
+		i = tid / n;
+		j = tid % n;
+		gmem_index = j + i * ldm;
+	}
 
 	TMP_T v = 0;
 	for (unsigned r = 0; r < rank; r++) {
 		v += u_ptr[r * m + i] * smem_s[r] * v_ptr[r * n + j];
 	}
-	out_ptr[tid] = convert<OUTPUT_T>(v);
+	out_ptr[gmem_index] = convert<OUTPUT_T>(v);
 }
 } // noname namespace
 
 template <class T>
 void mtk::mateval::cuda::latms(
-		T* const dst_ptr,
 		const unsigned m,
 		const unsigned n,
+		const mtk::mateval::major_t major,
+		T* const dst_ptr,
+		const unsigned ldm,
 		T* const d,
 		const unsigned rank,
 		const unsigned long long seed,
@@ -169,14 +184,14 @@ void mtk::mateval::cuda::latms(
 			qr_work_device, geqrf_lwork_u_device,
 			qr_work_host, geqrf_lwork_u_host,
 			qr_info);
+	cusolverDnXorgqr_wrapper(
+			cusolver_handle, m, rank, rank, mat_u, m, tau, qr_work, orgqr_lwork_u, qr_info);
 	cusolverDnXgeqrf(
-			cusolver_handle, cusolver_params, m, rank,
-			getCudaDataType<T>(), mat_u, std::min(m, rank), getCudaDataType<T>(), tau, getCudaDataType<T>(),
+			cusolver_handle, cusolver_params, n, rank,
+			getCudaDataType<T>(), mat_v, std::min(n, rank), getCudaDataType<T>(), tau, getCudaDataType<T>(),
 			qr_work_device, geqrf_lwork_v_device,
 			qr_work_host, geqrf_lwork_v_host,
 			qr_info);
-	cusolverDnXorgqr_wrapper(
-			cusolver_handle, m, rank, rank, mat_u, m, tau, qr_work, orgqr_lwork_u, qr_info);
 	cusolverDnXorgqr_wrapper(
 			cusolver_handle, n, rank, rank, mat_v, n, tau, qr_work, orgqr_lwork_v, qr_info);
 
@@ -200,11 +215,13 @@ void mtk::mateval::cuda::latms(
 	cudaFuncSetAttribute(&multiply_usvt<T, T, T>, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_memory_size);
 
 	multiply_usvt<T, T, T><<<(m * n + block_size - 1) / block_size, block_size, shared_memory_size, cuda_stream>>>(
-			dst_ptr,
 			m, n,
+			major,
+			dst_ptr,
+			ldm,
 			diag_s,
 			rank,
-			mat_u,mat_v 
+			mat_u, mat_v
 			);
 
 	if (working_memory_type == mtk::mateval::cuda::device_memory) {
@@ -220,5 +237,5 @@ void mtk::mateval::cuda::latms(
 	}
 }
 
-template void mtk::mateval::cuda::latms<float >( float* const, const unsigned, const unsigned, float * const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);
-template void mtk::mateval::cuda::latms<double>(double* const, const unsigned, const unsigned, double* const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);
+template void mtk::mateval::cuda::latms<float >(const unsigned, const unsigned, mtk::mateval::major_t,  float* const, const unsigned, float * const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);
+template void mtk::mateval::cuda::latms<double>(const unsigned, const unsigned, mtk::mateval::major_t, double* const, const unsigned, double* const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);

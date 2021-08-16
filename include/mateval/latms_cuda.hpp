@@ -1,6 +1,7 @@
 #ifndef __MATEVAL_LATMS_CUDA_HPP__
 #define __MATEVAL_LATMS_CUDA_HPP__
 #include <cstdint>
+#include "common.hpp"
 
 namespace mtk {
 namespace mateval {
@@ -30,9 +31,11 @@ enum memory_type {
 // +---+       +-------------+
 template <class T>
 void latms(
-		T* const dst_ptr,
 		const unsigned m,
 		const unsigned n,
+		const mtk::mateval::major_t major,
+		T* const dst_ptr,
+		const unsigned ldm,
 		T* const d,
 		const unsigned rank,
 		const unsigned long long seed,
