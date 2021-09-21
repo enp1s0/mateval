@@ -1,7 +1,7 @@
 CXX=g++
 CXXFLAGS=-std=c++14 -I../include -fopenmp
 NVCC=nvcc
-NVCCFLAGS=-std=c++14 -Xcompiler="${CXXFLAGS}" -L../build -lmateval_cuda -arch=sm_80
+NVCCFLAGS=-std=c++14 -Xcompiler="${CXXFLAGS}" -L../build -lmateval_cuda -arch=sm_80 -lcurand -lcusolver
 TARGET=comparison.test cond.test cuda.test
 
 all: $(TARGET)
