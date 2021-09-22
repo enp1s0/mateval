@@ -298,6 +298,37 @@ double max_error(
 }
 
 template <class A_T, class REF_T>
+double max_relative_error(
+		const unsigned M, const unsigned N,
+		const major_t a_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double max_error = 0.0;
+	double max_element = 0.0;
+#pragma omp parallel for collapse(2) reduction(max: max_error)
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			double r, a;
+			if (r_major == mtk::mateval::col_major) {
+				r = r_ptr[m + n * ldr];
+			} else {
+				r = r_ptr[n + m * ldr];
+			}
+			if (a_major == mtk::mateval::col_major) {
+				a = a_ptr[m + n * lda];
+			} else {
+				a = a_ptr[n + m * lda];
+			}
+			const auto diff = a - r;
+			max_error = std::max(max_error, std::abs(diff));
+			max_element = std::max(max_element, std::abs(r));
+		}
+	}
+	return max_error;
+}
+
+template <class A_T, class REF_T>
 std::tuple<double, double> max_error_and_residual(
 		const unsigned M, const unsigned N,
 		const major_t a_major, const major_t r_major,
@@ -328,6 +359,41 @@ std::tuple<double, double> max_error_and_residual(
 		}
 	}
 	return std::make_tuple(max_error, std::sqrt(diff_norm2 / base_norm2));
+}
+
+template <class A_T, class REF_T>
+std::tuple<double, double> max_relative_error_and_residual(
+		const unsigned M, const unsigned N,
+		const major_t a_major, const major_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double base_norm2 = 0.0;
+	double diff_norm2 = 0.0;
+	double max_error = 0.0;
+	double max_element = 0.0;
+#pragma omp parallel for collapse(2) reduction(max: max_error) reduction(+: base_norm2) reduction(+: diff_norm2)
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			double r, a;
+			if (r_major == mtk::mateval::col_major) {
+				r = r_ptr[m + n * ldr];
+			} else {
+				r = r_ptr[n + m * ldr];
+			}
+			if (a_major == mtk::mateval::col_major) {
+				a = a_ptr[m + n * lda];
+			} else {
+				a = a_ptr[n + m * lda];
+			}
+			const auto diff = a - r;
+			max_error = std::max(max_error, std::abs(diff));
+			max_element = std::max(max_element, std::abs(r));
+			diff_norm2 += diff * diff;
+			base_norm2 += a * a;
+		}
+	}
+	return std::make_tuple(max_error / max_element, std::sqrt(diff_norm2 / base_norm2));
 }
 
 } // namespace mateval
