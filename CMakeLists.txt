@@ -59,6 +59,7 @@ install(FILES ${HEADERS}
 # Directory
 set(TESTSRCDIR tests)
 
+# CU
 foreach(test cuda)
 	set(test_out ${test}.test)
 	add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
@@ -67,6 +68,16 @@ foreach(test cuda)
 	target_link_libraries(${test_out} PRIVATE
 		CUDA::cublas
 		)
+	if (OpenMP_CXX_FOUND)
+		target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
+	endif()
+endforeach()
+
+# CPP
+foreach(test comparison)
+	set(test_out ${test}.test)
+	add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
+	target_include_directories(${test_out} PRIVATE ${INCDIR})
 	if (OpenMP_CXX_FOUND)
 		target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
 	endif()
