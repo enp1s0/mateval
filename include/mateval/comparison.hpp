@@ -325,7 +325,7 @@ double max_relative_error(
 			max_element = std::max(max_element, std::abs(r));
 		}
 	}
-	return max_error;
+	return max_error / max_element;
 }
 
 template <class A_T, class REF_T>
