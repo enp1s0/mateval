@@ -62,8 +62,8 @@ make -j8
 
 2. Link to your application
 ```cpp
-// g++ -I/path/to/mateval/include -L/path/to/libmateval_cuda.a -lmateval_cuda ...
-#include <mateval/comparison.hpp>
+// nvcc -I/path/to/mateval/include -L/path/to/libmateval_cuda.a -lmateval_cuda ...
+#include <mateval/comparison_cuda.hpp>
 const auto a_major = mtk::mateval::col_major;
 const auto b_major = mtk::mateval::col_major;
 const auto r_major = mtk::mateval::col_major;
