@@ -12,7 +12,7 @@ enum major_t {
 	row_major = 1,
 };
 
-namespace util {
+namespace utils {
 template <class T>
 inline std::pair<T, T> calc_mean_and_var(
 		const std::vector<T>& array
@@ -22,7 +22,7 @@ inline std::pair<T, T> calc_mean_and_var(
 
 	return std::make_pair(mean, var);
 }
-} // namespace util
+} // namespace utils
 
 } // namespace mateval
 } // namespace mtk

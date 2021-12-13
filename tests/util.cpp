@@ -10,7 +10,7 @@ int main() {
 		array[i] = i + 1;
 	}
 
-	const auto [mean, var] = mtk::mateval::util::calc_mean_and_var(array);
+	const auto [mean, var] = mtk::mateval::utils::calc_mean_and_var(array);
 
 	const auto expected_mean = (N + 1) / 2.;
 	const auto expected_var  = N * (N + 1) / 12.;
