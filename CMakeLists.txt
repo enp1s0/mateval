@@ -74,7 +74,7 @@ foreach(test cuda)
 endforeach()
 
 # CPP
-foreach(test comparison)
+foreach(test comparison util)
 	set(test_out ${test}.test)
 	add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
 	target_include_directories(${test_out} PRIVATE ${INCDIR})
