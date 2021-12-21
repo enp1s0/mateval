@@ -64,6 +64,15 @@ double residual_UxSxVt(
 		const V_T*   const v_ptr, const unsigned ldv,
 		const REF_T* const r_ptr, const unsigned ldr
 		);
+
+// Orthogonality
+template <class T>
+double orthogonality(
+		const unsigned M, const unsigned N,
+		const major_t major,
+		const T* const ptr, const unsigned ld
+		);
+
 } // namespace cuda
 } // namespace mateval
 } // namespace mtk
