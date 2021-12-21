@@ -749,3 +749,91 @@ double mtk::mateval::cuda::residual_UxSxVt(
 template double mtk::mateval::cuda::residual_UxSxVt<double, double, double, double>(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const double* const, const unsigned, const double* const, const double* const, const unsigned, const double* const, const unsigned);
 template double mtk::mateval::cuda::residual_UxSxVt<float , float , float , float >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const float * const, const unsigned, const float * const, const float * const, const unsigned, const float * const, const unsigned);
 template double mtk::mateval::cuda::residual_UxSxVt<half  , half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const half  * const, const unsigned, const half  * const, const unsigned);
+
+template <class T>
+__global__ void orthogonality_kernel(
+		double* const diff_norm,
+		const unsigned M, const unsigned N,
+		const mtk::mateval::major_t major,
+		const T* const ptr, const unsigned ld
+		) {
+	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+	double diff = 0;
+	if (tid < N * N) {
+		const auto row = tid % N;
+		const auto col = tid / N;
+
+		double sum = 0.;
+		for (unsigned k = 0; k < M; k++) {
+			std::size_t a_index;
+			std::size_t b_index;
+			if (major == mtk::mateval::col_major) {
+				a_index = k + row * ld;
+				b_index = k + col * ld;
+			} else {
+				a_index = row + k * ld;
+				b_index = col + k * ld;
+			}
+
+			const auto da = static_cast<double>(ptr[a_index]);
+			const auto db = static_cast<double>(ptr[b_index]);
+			sum = fma(da, db, sum);
+		}
+
+		double base = (row == col) ? 1.0 : 0.0;
+		diff = sum - base;
+	}
+
+	__shared__ double smem_diff[block_size];
+	smem_diff[threadIdx.x] = diff * diff;
+
+	__syncthreads();
+	for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
+		if (threadIdx.x < i) {
+			const auto i0 = threadIdx.x;
+			const auto i1 = i0 + i;
+			smem_diff[i0] += smem_diff[i1];
+		}
+		__syncthreads();
+	}
+	diff_norm[blockIdx.x] = smem_diff[0];
+}
+
+template <class T>
+double mtk::mateval::cuda::orthogonality(
+		const unsigned M, const unsigned N,
+		const mtk::mateval::major_t major,
+		const T* const ptr, const unsigned ld
+		) {
+	const auto num_threads = N * N;
+	const auto grid_size = (num_threads + block_size - 1) / block_size;
+
+	double *h_diff;
+	cudaMallocHost(&h_diff, grid_size * sizeof(double));
+	for (unsigned i = 0; i < grid_size; i++) {
+		h_diff[i] = 0.;
+	}
+
+	orthogonality_kernel<T><<<grid_size, block_size>>>(
+			h_diff,
+			M, N,
+			major,
+			ptr, ld
+			);
+	cudaDeviceSynchronize();
+
+	double diff_norm = 0.0;
+#pragma omp parallel for reduction(+: diff_norm)
+	for (unsigned i = 0; i < grid_size; i++) {
+		diff_norm += h_diff[i];
+	}
+
+	cudaFreeHost(h_diff);
+
+	return std::sqrt(diff_norm / N);
+}
+
+template double mtk::mateval::cuda::orthogonality<double>(const unsigned, const unsigned, const mtk::mateval::major_t, const double* const, const unsigned);
+template double mtk::mateval::cuda::orthogonality<float >(const unsigned, const unsigned, const mtk::mateval::major_t, const float * const, const unsigned);
+template double mtk::mateval::cuda::orthogonality<half  >(const unsigned, const unsigned, const mtk::mateval::major_t, const half  * const, const unsigned);

@@ -12,6 +12,11 @@ enum major_t {
 	row_major = 1,
 };
 
+inline major_t inv_major(const major_t m) {
+	if (m == col_major) return row_major;
+	else return col_major;
+}
+
 namespace utils {
 template <class T>
 inline std::pair<T, T> calc_mean_and_var(
