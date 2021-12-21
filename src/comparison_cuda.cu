@@ -659,9 +659,9 @@ __global__ void residual_SVD_kernel(
 
 			std::size_t v_index;
 			if (v_major == mtk::mateval::col_major) {
-				v_index = k + col * ldv;
-			} else {
 				v_index = col + k * ldv;
+			} else {
+				v_index = k + col * ldv;
 			}
 
 			const auto du = static_cast<double>(u_ptr[u_index]);
@@ -703,7 +703,7 @@ __global__ void residual_SVD_kernel(
 template <class U_T, class S_T, class V_T, class REF_T>
 double mtk::mateval::cuda::residual_UxSxVt(
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::major_t a_major, const mtk::mateval::major_t b_major, const mtk::mateval::major_t r_major,
+		const mtk::mateval::major_t u_major, const mtk::mateval::major_t v_major, const mtk::mateval::major_t r_major,
 		const U_T*   const u_ptr, const unsigned ldu,
 		const S_T*   const s_ptr,
 		const V_T*   const v_ptr, const unsigned ldv,
@@ -724,7 +724,7 @@ double mtk::mateval::cuda::residual_UxSxVt(
 	residual_SVD_kernel<U_T, S_T, V_T, REF_T><<<grid_size, block_size>>>(
 			h_diff, h_base,
 			M, N, K,
-			a_major, b_major, r_major,
+			u_major, v_major, r_major,
 			u_ptr, ldu,
 			s_ptr,
 			v_ptr, ldv,
