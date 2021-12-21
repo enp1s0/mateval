@@ -43,11 +43,22 @@ const auto max_error = mtk::mateval::max_relative_error_AxB(
 ```cpp
 // g++ -I/path/to/mateval/include ... -llapacke -llapack -lblas -lgfortran
 #include <mateval/cond.hpp>
-const auto a_major = mtk::mateval::col_major;
 
 const auto cond = mtk::mateval::cond(
     m, n, mtk::mateval::col_major,
     mat_a, m, mtk::mateval::norm_1
+    );
+```
+
+- Calculate an orthogonality
+```cpp
+// g++ -I/path/to/mateval/include ...
+#include <mateval/comparison.hpp>
+
+// Compute |I - At x A| / sqrt(N)
+const auto cond = mtk::mateval::orthogonality(
+    m, n, mtk::mateval::col_major,
+    mat_a, m
     );
 ```
 
