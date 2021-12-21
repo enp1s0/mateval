@@ -53,6 +53,17 @@ std::tuple<double, double> max_relative_error_and_residual_AxB(
 		const B_T*   const b_ptr, const unsigned ldb,
 		const REF_T* const r_ptr, const unsigned ldr
 		);
+
+// SVD
+template <class U_T, class S_T, class V_T, class REF_T>
+double residual_UxSxVt(
+		const unsigned M, const unsigned N, const unsigned K,
+		const major_t u_major, const major_t v_major, const major_t r_major,
+		const U_T*   const u_ptr, const unsigned ldu,
+		const S_T*   const s_ptr,
+		const V_T*   const v_ptr, const unsigned ldv,
+		const REF_T* const r_ptr, const unsigned ldr
+		);
 } // namespace cuda
 } // namespace mateval
 } // namespace mtk
