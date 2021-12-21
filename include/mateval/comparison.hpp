@@ -396,6 +396,57 @@ std::tuple<double, double> max_relative_error_and_residual(
 	return std::make_tuple(max_error / max_element, std::sqrt(diff_norm2 / base_norm2));
 }
 
+template <class U_T, class S_T, class V_T, class REF_T>
+double residual_UxSxVt(
+		const unsigned M, const unsigned N, const unsigned K,
+		const major_t u_major, const major_t v_major, const major_t r_major,
+		const U_T* const u_ptr, const unsigned ldu,
+		const S_T* const s_ptr,
+		const V_T* const v_ptr, const unsigned ldv,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	double base_norm2 = 0.;
+	double diff_norm2 = 0.;
+#pragma omp parallel for collapse(2) reduction(+: base_norm2) reduction(+: diff_norm2)
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			double c = 0.0;
+			for (unsigned k = 0; k < K; k++) {
+				// load V
+				double u;
+				if (u_major == col_major) {
+					u = u_ptr[k * ldu + m];
+				} else {
+					u = u_ptr[m * ldu + k];
+				}
+
+				// load V
+				double v;
+				if (v_major == col_major) {
+					v = v_ptr[k * ldv + n];
+				} else {
+					v = v_ptr[k + ldv * n];
+				}
+
+				// load S
+				const double s = s_ptr[k];
+				c += u * s * v;
+			}
+
+			double r;
+			if (r_major == mtk::mateval::col_major) {
+				r = r_ptr[m + n * ldr];
+			} else {
+				r = r_ptr[n + m * ldr];
+			}
+			const auto diff = c - r;
+			diff_norm2 += diff * diff;
+			base_norm2 += c * c;
+		}
+	}
+	return std::sqrt(diff_norm2 / base_norm2);
+}
+
 } // namespace mateval
 } // namespace mtk
 #endif
