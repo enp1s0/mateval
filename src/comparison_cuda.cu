@@ -626,3 +626,126 @@ std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_A
 template std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_AxB<half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const unsigned, const half  * const, const unsigned);
 template std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_AxB<float , float , float >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const float * const, const unsigned, const float * const, const unsigned, const float * const, const unsigned);
 template std::tuple<double, double> mtk::mateval::cuda::max_relative_error_and_residual_AxB<double, double, double>(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const double* const, const unsigned, const double* const, const unsigned, const double* const, const unsigned);
+
+// SVD
+template <class U_T, class S_T, class V_T, class REF_T>
+__global__ void residual_SVD_kernel(
+		double* const diff_norm,
+		double* const base_norm,
+		const unsigned M, const unsigned N, const unsigned K,
+		const mtk::mateval::major_t u_major, const mtk::mateval::major_t v_major, const mtk::mateval::major_t r_major,
+		const U_T*   const u_ptr, const unsigned ldu,
+		const S_T*   const s_ptr,
+		const V_T*   const v_ptr, const unsigned ldv,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+	double sum = 0.0;
+	double diff = 0.0;
+	double base = 0.0;
+
+	if (tid < M * N) {
+		const auto row = tid % M;
+		const auto col = tid / M;
+
+		for (unsigned k = 0; k < K; k++) {
+			std::size_t u_index;
+			if (u_major == mtk::mateval::col_major) {
+				u_index = row + k * ldu;
+			} else {
+				u_index = k + row * ldu;
+			}
+
+			std::size_t v_index;
+			if (v_major == mtk::mateval::col_major) {
+				v_index = k + col * ldv;
+			} else {
+				v_index = col + k * ldv;
+			}
+
+			const auto du = static_cast<double>(u_ptr[u_index]);
+			const auto dv = static_cast<double>(v_ptr[v_index]);
+			const auto ds = static_cast<double>(s_ptr[k]);
+			sum = fma(du * ds, dv, sum);
+		}
+
+		std::size_t r_index;
+		if (r_major == mtk::mateval::col_major) {
+			r_index = row + col * ldr;
+		} else {
+			r_index = col + row * ldr;
+		}
+
+		base = r_ptr[r_index];
+		diff = sum - base;
+	}
+
+	__shared__ double smem_diff[block_size];
+	__shared__ double smem_base[block_size];
+	smem_diff[threadIdx.x] = diff * diff;
+	smem_base[threadIdx.x] = base * base;
+
+	__syncthreads();
+	for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
+		if (threadIdx.x < i) {
+			const auto i0 = threadIdx.x;
+			const auto i1 = i0 + i;
+			smem_base[i0] += smem_base[i1];
+			smem_diff[i0] += smem_diff[i1];
+		}
+		__syncthreads();
+	}
+	diff_norm[blockIdx.x] = smem_diff[0];
+	base_norm[blockIdx.x] = smem_base[0];
+}
+
+template <class U_T, class S_T, class V_T, class REF_T>
+double mtk::mateval::cuda::residual_UxSxVt(
+		const unsigned M, const unsigned N, const unsigned K,
+		const mtk::mateval::major_t a_major, const mtk::mateval::major_t b_major, const mtk::mateval::major_t r_major,
+		const U_T*   const u_ptr, const unsigned ldu,
+		const S_T*   const s_ptr,
+		const V_T*   const v_ptr, const unsigned ldv,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	const auto num_threads = M * N;
+	const auto grid_size = (num_threads + block_size - 1) / block_size;
+
+	double *h_base;
+	double *h_diff;
+	cudaMallocHost(&h_base, grid_size * sizeof(double));
+	cudaMallocHost(&h_diff, grid_size * sizeof(double));
+	for (unsigned i = 0; i < grid_size; i++) {
+		h_diff[i] = 0.;
+		h_base[i] = 0.;
+	}
+
+	residual_SVD_kernel<U_T, S_T, V_T, REF_T><<<grid_size, block_size>>>(
+			h_diff, h_base,
+			M, N, K,
+			a_major, b_major, r_major,
+			u_ptr, ldu,
+			s_ptr,
+			v_ptr, ldv,
+			r_ptr, ldr
+			);
+	cudaDeviceSynchronize();
+
+	double base_norm = 0.0;
+	double diff_norm = 0.0;
+#pragma omp parallel for reduction(+: base_norm) reduction(+: diff_norm)
+	for (unsigned i = 0; i < grid_size; i++) {
+		base_norm += h_base[i];
+		diff_norm += h_diff[i];
+	}
+
+	cudaFreeHost(h_base);
+	cudaFreeHost(h_diff);
+
+	return std::sqrt(diff_norm / base_norm);
+}
+
+template <> double mtk::mateval::cuda::residual_UxSxVt<double, double, double, double>(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const double* const, const unsigned, const double* const, const double* const, const unsigned, const double* const, const unsigned);
+template <> double mtk::mateval::cuda::residual_UxSxVt<float , float , float , float >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const float * const, const unsigned, const float * const, const float * const, const unsigned, const float * const, const unsigned);
+template <> double mtk::mateval::cuda::residual_UxSxVt<half  , half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const half  * const, const unsigned, const half  * const, const unsigned);
