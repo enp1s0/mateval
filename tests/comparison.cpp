@@ -223,6 +223,50 @@ void test_UxSxVt(
 				);
 }
 
+void test_orthogonality(
+	const unsigned M,
+	const unsigned N,
+	const mtk::mateval::major_t major,
+	const unsigned ld,
+	const bool should_be_passed
+	) {
+	const std::size_t r_mem_size = ld * (major == mtk::mateval::col_major ? N : M);
+	const std::size_t vec_length = std::max(M, N);
+
+	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
+	auto vec_r = std::unique_ptr<float[]>(new float [vec_length]);
+
+	double vec_norm2 = 0.;
+	for (unsigned i = 0; i < vec_length; i++) {
+		vec_r.get()[i] = i / static_cast<double>(vec_length);
+		vec_norm2 += vec_r.get()[i] * vec_r.get()[i];
+	}
+
+	// Set H
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			const auto index = (major == mtk::mateval::col_major ? (m + n * ld) : (m * ld + n));
+			const auto v = (m == n ? 1.0 : 0.0) - 2.0 * vec_r.get()[m] * vec_r.get()[n] / vec_norm2;
+			mat_r.get()[index] = v + (should_be_passed ? 0. : 1.);
+		}
+	}
+
+	const auto orthogonality = mtk::mateval::orthogonality(
+			M, N,
+			major,
+			mat_r.get(), ld
+			);
+
+	std::printf("[%s]{M=%3u,N=%3u,ldr=%u,major=%3s} orthogonality=%e(%6s)\n",
+				__func__,
+				M, N,
+				ld,
+				(major == mtk::mateval::col_major ? "col" : "row"),
+				orthogonality,
+				((orthogonality < 1e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
+				);
+}
+
 int main() {
 	std::printf("----------- passing test -----------\n");
 	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
@@ -301,6 +345,10 @@ int main() {
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
+	test_orthogonality(matrix_dim, matrix_dim, mtk::mateval::col_major, matrix_dim, true);
+	test_orthogonality(matrix_dim, matrix_dim, mtk::mateval::row_major, matrix_dim, true);
+	test_orthogonality(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, matrix_dim, true);
+	test_orthogonality(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, matrix_dim, true);
 	std::printf("--------- failing test ---------\n");
 	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
 	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
@@ -378,4 +426,8 @@ int main() {
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_orthogonality(matrix_dim, matrix_dim, mtk::mateval::col_major, matrix_dim, false);
+	test_orthogonality(matrix_dim, matrix_dim, mtk::mateval::row_major, matrix_dim, false);
+	test_orthogonality(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, matrix_dim, false);
+	test_orthogonality(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, matrix_dim, false);
 }
