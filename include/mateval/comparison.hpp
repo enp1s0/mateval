@@ -447,6 +447,26 @@ double residual_UxSxVt(
 	return std::sqrt(diff_norm2 / base_norm2);
 }
 
+// Orthogonality
+template <class T>
+double orthogonality(
+		const unsigned M, const unsigned N,
+		const major_t major,
+		const T* const ptr, const unsigned ld
+		) {
+	double sum = 0.;
+	foreach_AxB(
+			N, N, M,
+			inv_major(major), major,
+			ptr, ld,
+			ptr, ld,
+			[&](const double c, const unsigned m, const unsigned n) {
+			const auto v = (m == n ? 1. : 0.) - c;
+			sum += v * v;
+			});
+	return std::sqrt(sum / N);
+}
+
 } // namespace mateval
 } // namespace mtk
 #endif
