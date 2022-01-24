@@ -78,7 +78,7 @@ void measure_throughput(
 		max_relative_error_and_residual_time = std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
 	}
 	const auto computational_complexity = 2 * m * n * k;
-	printf("[m%7lu-n%7lu-k%7lu] : r=%e, m=%e, mr=%e\n",
+	printf("[m=%7lu, n=%7lu, k=%7lu] : r=%e, m=%e, mr=%e\n",
 			m, n, k,
 			computational_complexity / residual_time * 1e-9,
 			computational_complexity / max_relative_error_time * 1e-9,
