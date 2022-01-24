@@ -60,7 +60,7 @@ install(FILES ${HEADERS}
 set(TESTSRCDIR tests)
 
 # CU
-foreach(test cuda)
+foreach(test cuda cuda_throughput)
 	set(test_out ${test}.test)
 	add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
 	target_include_directories(${test_out} PRIVATE ${INCDIR})
