@@ -12,77 +12,31 @@ void measure_throughput(
 		const float* const b_ptr,
 		const float* const c_ptr
 		) {
-	double residual_time, max_relative_error_time, max_relative_error_and_residual_time;
-
-	{
-		mtk::mateval::cuda::residual_AxB(
-				m, n, k,
-				mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
-				a_ptr, k,
-				b_ptr, k,
-				c_ptr, m
-				);
-		cudaDeviceSynchronize();
-		const auto start_clock = std::chrono::system_clock::now();
-		mtk::mateval::cuda::residual_AxB(
-				m, n, k,
-				mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
-				a_ptr, k,
-				b_ptr, k,
-				c_ptr, m
-				);
-		cudaDeviceSynchronize();
-		const auto end_clock = std::chrono::system_clock::now();
-		residual_time = std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
-	}
-	{
-		mtk::mateval::cuda::max_relative_error_AxB(
-				m, n, k,
-				mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
-				a_ptr, k,
-				b_ptr, k,
-				c_ptr, m
-				);
-		cudaDeviceSynchronize();
-		const auto start_clock = std::chrono::system_clock::now();
-		mtk::mateval::cuda::max_relative_error_AxB(
-				m, n, k,
-				mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
-				a_ptr, k,
-				b_ptr, k,
-				c_ptr, m
-				);
-		cudaDeviceSynchronize();
-		const auto end_clock = std::chrono::system_clock::now();
-		max_relative_error_time = std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
-	}
-	{
-		mtk::mateval::cuda::max_relative_error_and_residual_AxB(
-				m, n, k,
-				mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
-				a_ptr, k,
-				b_ptr, k,
-				c_ptr, m
-				);
-		cudaDeviceSynchronize();
-		const auto start_clock = std::chrono::system_clock::now();
-		mtk::mateval::cuda::max_relative_error_and_residual_AxB(
-				m, n, k,
-				mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
-				a_ptr, k,
-				b_ptr, k,
-				c_ptr, m
-				);
-		cudaDeviceSynchronize();
-		const auto end_clock = std::chrono::system_clock::now();
-		max_relative_error_and_residual_time = std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
-	}
-	const auto computational_complexity = 2 * m * n * k;
-	printf("[m=%7lu, n=%7lu, k=%7lu] : r=%e, m=%e, mr=%e\n",
+	mtk::mateval::cuda::get_error_AxB(
+			mtk::mateval::max_absolute_error,
 			m, n, k,
-			computational_complexity / residual_time * 1e-9,
-			computational_complexity / max_relative_error_time * 1e-9,
-			computational_complexity / max_relative_error_and_residual_time * 1e-9
+			mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
+			a_ptr, k,
+			b_ptr, k,
+			c_ptr, m
+			);
+	cudaDeviceSynchronize();
+	const auto start_clock = std::chrono::system_clock::now();
+	mtk::mateval::cuda::get_error_AxB(
+			mtk::mateval::max_absolute_error,
+			m, n, k,
+			mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
+			a_ptr, k,
+			b_ptr, k,
+			c_ptr, m
+			);
+	cudaDeviceSynchronize();
+	const auto end_clock = std::chrono::system_clock::now();
+	const auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
+	const auto computational_complexity = 2 * m * n * k;
+	printf("[m=%7lu, n=%7lu, k=%7lu] : r=%e [GFlop/s]\n",
+			m, n, k,
+			computational_complexity / elapsed_time * 1e-9
 			);
 }
 

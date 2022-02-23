@@ -17,6 +17,12 @@ inline major_t inv_major(const major_t m) {
 	else return col_major;
 }
 
+using error_t = unsigned;
+constexpr error_t relative_residual = 0x001;
+constexpr error_t max_relative_error = 0x002;
+constexpr error_t max_absolute_error = 0x004;
+constexpr error_t forward_error = 0x008;
+
 namespace utils {
 template <class T>
 inline std::pair<T, T> calc_mean_and_var(
