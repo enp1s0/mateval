@@ -10,33 +10,16 @@ const auto a_major = mtk::mateval::col_major;
 const auto b_major = mtk::mateval::col_major;
 const auto r_major = mtk::mateval::col_major;
 
-// Evaluation of residual
-const auto residual = mtk::mateval::residual_AxB(
+const std::unordered_map<mtk::mateval::error_t, double> result = mtk::mateval::error_AxB(
+    mtk::mateval::relative_residual | mtk::mateval::max_relative_error,
     M, N, K,
     a_major, b_major, r_major,
     mat_a, lda,
     mat_b, ldb,
     mat_ref, ldr
     );
-
-// Evaluation of max_error
-const auto max_error = mtk::mateval::max_error_AxB(
-    M, N, K,
-    a_major, b_major, r_major,
-    mat_a, lda,
-    mat_b, ldb,
-    mat_ref, ldr
-    );
-
-// Evaluation of max_relative_error
-// max_i,j |C_ref - C_target|_i,j / max_i,j |C_ref|_i,j
-const auto max_error = mtk::mateval::max_relative_error_AxB(
-    M, N, K,
-    a_major, b_major, r_major,
-    mat_a, lda,
-    mat_b, ldb,
-    mat_ref, ldr
-    );
+const auto residual = result.at(mtk::mateval::relative_residual);
+const auto max_relative_error = result.at(mtk::mateval::max_relative_error);
 ```
 
 - Calculate a condition number
@@ -79,32 +62,16 @@ const auto a_major = mtk::mateval::col_major;
 const auto b_major = mtk::mateval::col_major;
 const auto r_major = mtk::mateval::col_major;
 
-// Evaluation of residual
-const auto residual = mtk::mateval::cuda::residual_AxB(
+const std::unordered_map<mtk::mateval::error_t, double> result = mtk::mateval::cuda::error_AxB(
+    mtk::mateval::relative_residual | mtk::mateval::max_relative_error,
     M, N, K,
     a_major, b_major, r_major,
     mat_a, lda,
     mat_b, ldb,
     mat_ref, ldr
     );
-
-// Evaluation of max_error
-const auto max_error = mtk::mateval::cuda::max_error_AxB(
-    M, N, K,
-    a_major, b_major, r_major,
-    mat_a, lda,
-    mat_b, ldb,
-    mat_ref, ldr
-    );
-
-// Evaluation of max_relative_error
-const auto max_error = mtk::mateval::cuda::max_relative_error_AxB(
-    M, N, K,
-    a_major, b_major, r_major,
-    mat_a, lda,
-    mat_b, ldb,
-    mat_ref, ldr
-    );
+const auto residual = result.at(mtk::mateval::relative_residual);
+const auto max_relative_error = result.at(mtk::mateval::max_relative_error);
 ```
 
 
