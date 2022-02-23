@@ -13,7 +13,7 @@ template <class A_T, class B_T, class REF_T>
 std::unordered_map<mtk::mateval::error_t, double> get_error_AxB(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N, const unsigned K,
-		const major_t a_major, const major_t b_major, const major_t r_major,
+		const layout_t a_major, const layout_t b_major, const layout_t r_major,
 		const A_T*   const a_ptr, const unsigned lda,
 		const B_T*   const b_ptr, const unsigned ldb,
 		const REF_T* const r_ptr, const unsigned ldr
@@ -23,7 +23,7 @@ std::unordered_map<mtk::mateval::error_t, double> get_error_AxB(
 template <class U_T, class S_T, class V_T, class REF_T>
 double residual_UxSxVt(
 		const unsigned M, const unsigned N, const unsigned K,
-		const major_t u_major, const major_t v_major, const major_t r_major,
+		const layout_t u_major, const layout_t v_major, const layout_t r_major,
 		const U_T*   const u_ptr, const unsigned ldu,
 		const S_T*   const s_ptr,
 		const V_T*   const v_ptr, const unsigned ldv,
@@ -34,7 +34,7 @@ double residual_UxSxVt(
 template <class T>
 double orthogonality(
 		const unsigned M, const unsigned N,
-		const major_t major,
+		const layout_t major,
 		const T* const ptr, const unsigned ld
 		);
 

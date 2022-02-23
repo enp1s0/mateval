@@ -9,9 +9,9 @@ void test_AxB(
 	const unsigned M,
 	const unsigned N,
 	const unsigned K,
-	const mtk::mateval::major_t a_major,
-	const mtk::mateval::major_t b_major,
-	const mtk::mateval::major_t r_major,
+	const mtk::mateval::layout_t a_major,
+	const mtk::mateval::layout_t b_major,
+	const mtk::mateval::layout_t r_major,
 	const unsigned lda,
 	const unsigned ldb,
 	const unsigned ldr,
@@ -50,29 +50,17 @@ void test_AxB(
 		}
 	}
 
-	const auto residual = mtk::mateval::residual_AxB(
+	const auto errors = mtk::mateval::get_error_AxB(
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
 		M, N, K,
 		a_major, b_major, r_major,
 		mat_a.get(), lda,
 		mat_b.get(), ldb,
 		mat_r.get(), ldr
 		);
-
-	const auto max_error = mtk::mateval::max_error_AxB(
-		M, N, K,
-		a_major, b_major, r_major,
-		mat_a.get(), lda,
-		mat_b.get(), ldb,
-		mat_r.get(), ldr
-		);
-
-	const auto max_relative_error = mtk::mateval::max_relative_error_AxB(
-		M, N, K,
-		a_major, b_major, r_major,
-		mat_a.get(), lda,
-		mat_b.get(), ldb,
-		mat_r.get(), ldr
-		);
+	const auto residual = errors.at(mtk::mateval::relative_residual);
+	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
+	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
 
 	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
 				__func__,
@@ -93,8 +81,8 @@ void test_AxB(
 void test_A(
 	const unsigned M,
 	const unsigned N,
-	const mtk::mateval::major_t a_major,
-	const mtk::mateval::major_t r_major,
+	const mtk::mateval::layout_t a_major,
+	const mtk::mateval::layout_t r_major,
 	const unsigned lda,
 	const unsigned ldr,
 	const bool should_be_passed
@@ -115,26 +103,16 @@ void test_A(
 		}
 	}
 
-	const auto residual = mtk::mateval::residual(
+	const auto errors = mtk::mateval::get_error(
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
 		M, N,
 		a_major, r_major,
 		mat_a.get(), lda,
 		mat_r.get(), ldr
 		);
-
-	const auto max_error = mtk::mateval::max_error(
-		M, N,
-		a_major, r_major,
-		mat_a.get(), lda,
-		mat_r.get(), ldr
-		);
-
-	const auto max_relative_error = mtk::mateval::max_relative_error(
-		M, N,
-		a_major, r_major,
-		mat_a.get(), lda,
-		mat_r.get(), ldr
-		);
+	const auto residual = errors.at(mtk::mateval::relative_residual);
+	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
+	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
 
 	std::printf("[%s]{M=%3u,N=%3u,lda=%u,ldr=%u,a_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
 				__func__,
@@ -155,9 +133,9 @@ void test_UxSxVt(
 	const unsigned M,
 	const unsigned N,
 	const unsigned K,
-	const mtk::mateval::major_t u_major,
-	const mtk::mateval::major_t v_major,
-	const mtk::mateval::major_t r_major,
+	const mtk::mateval::layout_t u_major,
+	const mtk::mateval::layout_t v_major,
+	const mtk::mateval::layout_t r_major,
 	const unsigned ldu,
 	const unsigned ldv,
 	const unsigned ldr,
@@ -226,7 +204,7 @@ void test_UxSxVt(
 void test_orthogonality(
 	const unsigned M,
 	const unsigned N,
-	const mtk::mateval::major_t major,
+	const mtk::mateval::layout_t major,
 	const unsigned ld,
 	const bool should_be_passed
 	) {
