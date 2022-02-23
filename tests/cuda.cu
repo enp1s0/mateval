@@ -60,7 +60,7 @@ void test_AxB(
 	cudaMemcpy(db, mat_b.get(), sizeof(float) * b_mem_size, cudaMemcpyDefault);
 	cudaMemcpy(dr, mat_r.get(), sizeof(float) * r_mem_size, cudaMemcpyDefault);
 
-	const auto errors = mtk::mateval::cuda::error_AxB(
+	const auto errors = mtk::mateval::cuda::get_error_AxB(
 		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
 		M, N, K,
 		a_major, b_major, r_major,

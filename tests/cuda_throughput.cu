@@ -12,7 +12,7 @@ void measure_throughput(
 		const float* const b_ptr,
 		const float* const c_ptr
 		) {
-	mtk::mateval::cuda::error_AxB(
+	mtk::mateval::cuda::get_error_AxB(
 			mtk::mateval::max_absolute_error,
 			m, n, k,
 			mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,
@@ -22,7 +22,7 @@ void measure_throughput(
 			);
 	cudaDeviceSynchronize();
 	const auto start_clock = std::chrono::system_clock::now();
-	mtk::mateval::cuda::error_AxB(
+	mtk::mateval::cuda::get_error_AxB(
 			mtk::mateval::max_absolute_error,
 			m, n, k,
 			mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major,

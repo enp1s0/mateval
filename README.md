@@ -10,7 +10,7 @@ const auto a_major = mtk::mateval::col_major;
 const auto b_major = mtk::mateval::col_major;
 const auto r_major = mtk::mateval::col_major;
 
-const std::unordered_map<mtk::mateval::error_t, double> result = mtk::mateval::error_AxB(
+const std::unordered_map<mtk::mateval::error_t, double> result = mtk::mateval::get_error_AxB(
     mtk::mateval::relative_residual | mtk::mateval::max_relative_error,
     M, N, K,
     a_major, b_major, r_major,
@@ -62,7 +62,7 @@ const auto a_major = mtk::mateval::col_major;
 const auto b_major = mtk::mateval::col_major;
 const auto r_major = mtk::mateval::col_major;
 
-const std::unordered_map<mtk::mateval::error_t, double> result = mtk::mateval::cuda::error_AxB(
+const std::unordered_map<mtk::mateval::error_t, double> result = mtk::mateval::cuda::get_error_AxB(
     mtk::mateval::relative_residual | mtk::mateval::max_relative_error,
     M, N, K,
     a_major, b_major, r_major,
