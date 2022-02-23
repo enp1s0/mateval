@@ -60,29 +60,17 @@ void test_AxB(
 	cudaMemcpy(db, mat_b.get(), sizeof(float) * b_mem_size, cudaMemcpyDefault);
 	cudaMemcpy(dr, mat_r.get(), sizeof(float) * r_mem_size, cudaMemcpyDefault);
 
-	const auto residual = mtk::mateval::cuda::residual_AxB(
+	const auto errors = mtk::mateval::cuda::error_AxB(
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
 		M, N, K,
 		a_major, b_major, r_major,
 		da, lda,
 		db, ldb,
 		dr, ldr
 		);
-
-	const auto max_error = mtk::mateval::cuda::max_error_AxB(
-		M, N, K,
-		a_major, b_major, r_major,
-		da, lda,
-		db, ldb,
-		dr, ldr
-		);
-
-	const auto max_relative_error = mtk::mateval::cuda::max_relative_error_AxB(
-		M, N, K,
-		a_major, b_major, r_major,
-		da, lda,
-		db, ldb,
-		dr, ldr
-		);
+	const auto residual = errors.at(mtk::mateval::relative_residual);
+	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
+	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
 	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
 				__func__,
 				M, N, K,
