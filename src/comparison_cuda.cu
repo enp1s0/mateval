@@ -10,7 +10,7 @@ __global__ void error_AxB_kernel(
 		const mtk::mateval::error_t error_type,
 		double* const result_ptr,
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::major_t a_major, const mtk::mateval::major_t b_major, const mtk::mateval::major_t r_major,
+		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t r_major,
 		const A_T* const a_ptr, const unsigned lda,
 		const B_T* const b_ptr, const unsigned ldb,
 		const R_T* const r_ptr, const unsigned ldr
@@ -131,7 +131,7 @@ template <class A_T, class B_T, class REF_T>
 std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::major_t a_major, const mtk::mateval::major_t b_major, const mtk::mateval::major_t r_major,
+		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t r_major,
 		const A_T*   const a_ptr, const unsigned lda,
 		const B_T*   const b_ptr, const unsigned ldb,
 		const REF_T* const r_ptr, const unsigned ldr
@@ -213,9 +213,9 @@ std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_
 	return result;
 }
 
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<half  , half  , half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const unsigned, const half  * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<float , float , float >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const float * const, const unsigned, const float * const, const unsigned, const float * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<double, double, double>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const double* const, const unsigned, const double* const, const unsigned, const double* const, const unsigned);
+template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<half  , half  , half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const half  * const, const unsigned, const half  * const, const unsigned);
+template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<float , float , float >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const float * const, const unsigned, const float * const, const unsigned);
+template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<double, double, double>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const double* const, const unsigned, const double* const, const unsigned);
 
 // SVD
 template <class U_T, class S_T, class V_T, class REF_T>
@@ -223,7 +223,7 @@ __global__ void residual_SVD_kernel(
 		double* const diff_norm,
 		double* const base_norm,
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::major_t u_major, const mtk::mateval::major_t v_major, const mtk::mateval::major_t r_major,
+		const mtk::mateval::layout_t u_major, const mtk::mateval::layout_t v_major, const mtk::mateval::layout_t r_major,
 		const U_T*   const u_ptr, const unsigned ldu,
 		const S_T*   const s_ptr,
 		const V_T*   const v_ptr, const unsigned ldv,
@@ -293,7 +293,7 @@ __global__ void residual_SVD_kernel(
 template <class U_T, class S_T, class V_T, class REF_T>
 double mtk::mateval::cuda::residual_UxSxVt(
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::major_t u_major, const mtk::mateval::major_t v_major, const mtk::mateval::major_t r_major,
+		const mtk::mateval::layout_t u_major, const mtk::mateval::layout_t v_major, const mtk::mateval::layout_t r_major,
 		const U_T*   const u_ptr, const unsigned ldu,
 		const S_T*   const s_ptr,
 		const V_T*   const v_ptr, const unsigned ldv,
@@ -336,15 +336,15 @@ double mtk::mateval::cuda::residual_UxSxVt(
 	return std::sqrt(diff_norm / base_norm);
 }
 
-template double mtk::mateval::cuda::residual_UxSxVt<double, double, double, double>(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const double* const, const unsigned, const double* const, const double* const, const unsigned, const double* const, const unsigned);
-template double mtk::mateval::cuda::residual_UxSxVt<float , float , float , float >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const float * const, const unsigned, const float * const, const float * const, const unsigned, const float * const, const unsigned);
-template double mtk::mateval::cuda::residual_UxSxVt<half  , half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::major_t, const mtk::mateval::major_t, const mtk::mateval::major_t, const half  * const, const unsigned, const half  * const, const half  * const, const unsigned, const half  * const, const unsigned);
+template double mtk::mateval::cuda::residual_UxSxVt<double, double, double, double>(const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const double* const, const double* const, const unsigned, const double* const, const unsigned);
+template double mtk::mateval::cuda::residual_UxSxVt<float , float , float , float >(const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const float * const, const float * const, const unsigned, const float * const, const unsigned);
+template double mtk::mateval::cuda::residual_UxSxVt<half  , half  , half  , half  >(const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const half  * const, const half  * const, const unsigned, const half  * const, const unsigned);
 
 template <class T>
 __global__ void orthogonality_kernel(
 		double* const diff_norm,
 		const unsigned M, const unsigned N,
-		const mtk::mateval::major_t major,
+		const mtk::mateval::layout_t major,
 		const T* const ptr, const unsigned ld
 		) {
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -393,7 +393,7 @@ __global__ void orthogonality_kernel(
 template <class T>
 double mtk::mateval::cuda::orthogonality(
 		const unsigned M, const unsigned N,
-		const mtk::mateval::major_t major,
+		const mtk::mateval::layout_t major,
 		const T* const ptr, const unsigned ld
 		) {
 	const auto num_threads = N * N;
@@ -424,6 +424,6 @@ double mtk::mateval::cuda::orthogonality(
 	return std::sqrt(diff_norm / N);
 }
 
-template double mtk::mateval::cuda::orthogonality<double>(const unsigned, const unsigned, const mtk::mateval::major_t, const double* const, const unsigned);
-template double mtk::mateval::cuda::orthogonality<float >(const unsigned, const unsigned, const mtk::mateval::major_t, const float * const, const unsigned);
-template double mtk::mateval::cuda::orthogonality<half  >(const unsigned, const unsigned, const mtk::mateval::major_t, const half  * const, const unsigned);
+template double mtk::mateval::cuda::orthogonality<double>(const unsigned, const unsigned, const mtk::mateval::layout_t, const double* const, const unsigned);
+template double mtk::mateval::cuda::orthogonality<float >(const unsigned, const unsigned, const mtk::mateval::layout_t, const float * const, const unsigned);
+template double mtk::mateval::cuda::orthogonality<half  >(const unsigned, const unsigned, const mtk::mateval::layout_t, const half  * const, const unsigned);

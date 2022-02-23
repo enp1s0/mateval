@@ -16,7 +16,7 @@ static const char norm_infinity = 'I';
 template <class T>
 double cond(
 		const unsigned m, const unsigned n,
-		const mtk::mateval::major_t a_major,
+		const mtk::mateval::layout_t a_major,
 		const T* const a_ptr, const unsigned lda,
 		double* const dp_working_memory,
 		const char norm_mode = mtk::mateval::norm_1
@@ -54,7 +54,7 @@ inline unsigned get_cond_working_mem_size(const unsigned m, const unsigned n) {
 template <class T>
 double cond(
 		const unsigned m, const unsigned n,
-		const mtk::mateval::major_t a_major,
+		const mtk::mateval::layout_t a_major,
 		const T* const a_ptr, const unsigned lda,
 		const char norm_mode = mtk::mateval::norm_1
 		) {

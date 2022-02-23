@@ -7,12 +7,12 @@
 namespace mtk {
 namespace mateval {
 
-enum major_t {
+enum layout_t {
 	col_major = 0,
 	row_major = 1,
 };
 
-inline major_t inv_major(const major_t m) {
+inline layout_t inv_major(const layout_t m) {
 	if (m == col_major) return row_major;
 	else return col_major;
 }
