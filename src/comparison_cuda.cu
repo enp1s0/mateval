@@ -63,7 +63,7 @@ __global__ void error_AxB_kernel(
 	}
 
 	double* my_result_ptr = result_ptr;
-	if (error_type & mtk::mateval::max_relative_error) {
+	if (error_type & mtk::mateval::relative_residual) {
 		__shared__ double smem_diff[block_size];
 		__shared__ double smem_base[block_size];
 		smem_diff[threadIdx.x] = diff * diff;
