@@ -19,6 +19,15 @@ std::unordered_map<mtk::mateval::error_t, double> get_error_AxB(
 		const REF_T* const r_ptr, const unsigned ldr
 		);
 
+template <class A_T, class REF_T>
+std::unordered_map<mtk::mateval::error_t, double> get_error(
+		const mtk::mateval::error_t error,
+		const unsigned M, const unsigned N,
+		const layout_t a_major, const layout_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const REF_T* const r_ptr, const unsigned ldr
+		);
+
 // SVD
 template <class U_T, class S_T, class V_T, class REF_T>
 double residual_UxSxVt(
