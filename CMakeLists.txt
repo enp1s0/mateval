@@ -38,6 +38,7 @@ target_include_directories(mateval_cuda PUBLIC ${INCDIR})
 
 # CUDA (2/2)
 set_target_properties(mateval_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(mateval_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 # Output
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${LIBDIR})
