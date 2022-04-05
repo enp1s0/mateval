@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 #include <tuple>
+#include <unordered_map>
 #include "common.hpp"
 
 namespace mtk {
