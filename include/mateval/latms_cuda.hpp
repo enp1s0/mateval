@@ -33,7 +33,7 @@ template <class T>
 void latms(
 		const unsigned m,
 		const unsigned n,
-		const mtk::mateval::major_t major,
+		const mtk::mateval::layout_t major,
 		T* const dst_ptr,
 		const unsigned ldm,
 		T* const d,

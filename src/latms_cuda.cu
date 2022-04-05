@@ -53,7 +53,7 @@ constexpr unsigned block_size = 256;
 template <class OUTPUT_T, class S_T, class TMP_T>
 __global__ void multiply_usvt(
 		const unsigned m, const unsigned n,
-		mtk::mateval::major_t major,
+		mtk::mateval::layout_t major,
 		OUTPUT_T* const out_ptr,
 		const unsigned ldm,
 		const S_T *s_ptr,
@@ -102,7 +102,7 @@ template <class T>
 void mtk::mateval::cuda::latms(
 		const unsigned m,
 		const unsigned n,
-		const mtk::mateval::major_t major,
+		const mtk::mateval::layout_t major,
 		T* const dst_ptr,
 		const unsigned ldm,
 		T* const d,
@@ -237,5 +237,5 @@ void mtk::mateval::cuda::latms(
 	}
 }
 
-template void mtk::mateval::cuda::latms<float >(const unsigned, const unsigned, mtk::mateval::major_t,  float* const, const unsigned, float * const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);
-template void mtk::mateval::cuda::latms<double>(const unsigned, const unsigned, mtk::mateval::major_t, double* const, const unsigned, double* const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);
+template void mtk::mateval::cuda::latms<float >(const unsigned, const unsigned, mtk::mateval::layout_t,  float* const, const unsigned, float * const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);
+template void mtk::mateval::cuda::latms<double>(const unsigned, const unsigned, mtk::mateval::layout_t, double* const, const unsigned, double* const, const unsigned, const unsigned long long, const mtk::mateval::cuda::memory_type, cudaStream_t);

@@ -37,8 +37,9 @@ void test_cuda_latms(
 	const auto cond_ref = s[0] / s[rank - 1];
 
 	mtk::mateval::cuda::latms(
-			A,
 			m, n,
+			mtk::mateval::col_major,
+			A, m,
 			s,
 			rank,
 			0, // seed

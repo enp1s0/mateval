@@ -44,6 +44,7 @@ target_link_libraries(mateval_cuda PRIVATE
 
 # CUDA (2/2)
 set_target_properties(mateval_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(mateval_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 # Output
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${LIBDIR})
@@ -65,7 +66,8 @@ install(FILES ${HEADERS}
 # Directory
 set(TESTSRCDIR tests)
 
-foreach(test cuda)
+# CU
+foreach(test cuda cuda_throughput)
 	set(test_out ${test}.test)
 	add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
 	target_include_directories(${test_out} PRIVATE ${INCDIR})
@@ -93,3 +95,13 @@ if(LAPACK_FOUND)
 		endif()
 	endforeach()
 endif()
+
+# CPP
+foreach(test comparison util)
+	set(test_out ${test}.test)
+	add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
+	target_include_directories(${test_out} PRIVATE ${INCDIR})
+	if (OpenMP_CXX_FOUND)
+		target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
+	endif()
+endforeach()
