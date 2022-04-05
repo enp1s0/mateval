@@ -23,7 +23,6 @@ double cond(
 		) {
 	// dp_a is a m x n col major fouble precision matrix
 	auto dp_a_ptr = dp_working_memory;
-	std::vector<double> singular_values(std::min(m, n));
 
 	// copy the input matrix a to dp_a
 	for (unsigned i = 0; i < n; i++) {
