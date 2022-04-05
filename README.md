@@ -78,7 +78,7 @@ const auto max_relative_error = result.at(mtk::mateval::max_relative_error);
 
 Generate a matrix with specified singular values using QR factorization
 
-See ![test code](./tests/cuda_latms.cu)
+See [test code](./tests/cuda_latms.cu)
 
 ## License
 MIT
