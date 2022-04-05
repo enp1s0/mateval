@@ -1,8 +1,37 @@
 #include <mateval/latms_cuda.hpp>
+#include <sstream>
 #include <curand.h>
 #include <cublas.h>
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+
+#define MATEVAL_CUSOLVER_CHECK_ERROR(status) check_cusolver_error((status), __FILE__, __LINE__, __func__)
+namespace {
+void check_cusolver_error(
+		const cusolverStatus_t cusolver_status,
+		const std::string file,
+		const std::size_t line,
+		const std::string func) {
+	if (cusolver_status != CUSOLVER_STATUS_SUCCESS) {
+		std::string error_string;
+#define CUSOLVER_ERROR_CASE(c) case c: error_string = #c; break
+		switch(cusolver_status){
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_NOT_INITIALIZED );
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_ALLOC_FAILED );
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_INVALID_VALUE );
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_ARCH_MISMATCH );
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_EXECUTION_FAILED );
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_INTERNAL_ERROR );
+			CUSOLVER_ERROR_CASE( CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED );
+		default: error_string = "Unknown error"; break;
+		}
+		std::stringstream ss;
+		ss<< error_string;
+		ss<<" ["<<file<<":"<<line<<" in "<<func<<"]";
+		throw std::runtime_error(ss.str());
+	}
+}
+}
 
 namespace {
 curandStatus_t curandGenerateUniform_wrapper(
@@ -76,17 +105,14 @@ __global__ void multiply_usvt(
 		return;
 	}
 
-	unsigned i = 0;
-	unsigned j = 0;
-	unsigned gmem_index = 0;
+
+	const auto i = tid % m;
+	const auto j = tid / m;
 	
+	std::size_t gmem_index = 0;
 	if (major == mtk::mateval::col_major) {
-		i = tid % m;
-		j = tid / m;
 		gmem_index = i + j * ldm;
 	} else {
-		i = tid / n;
-		j = tid % n;
 		gmem_index = j + i * ldm;
 	}
 
@@ -145,21 +171,21 @@ void mtk::mateval::cuda::latms(
 
 	// geqrf & ormqr
 	cusolverDnHandle_t cusolver_handle;
-	cusolverDnCreate(&cusolver_handle);
-	cusolverDnSetStream(cusolver_handle, cuda_stream);
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnCreate(&cusolver_handle));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnSetStream(cusolver_handle, cuda_stream));
 	cusolverDnParams_t cusolver_params;
-	cusolverDnCreateParams(&cusolver_params);
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnCreateParams(&cusolver_params));
 	
 	// get buffer size
 	std::size_t geqrf_lwork_u_device, geqrf_lwork_v_device;
 	std::size_t geqrf_lwork_u_host, geqrf_lwork_v_host;
 	int orgqr_lwork_u, orgqr_lwork_v;
-	cusolverDnXgeqrf_bufferSize(cusolver_handle, cusolver_params, m, rank,
-			getCudaDataType<T>(), mat_u, std::min(m, rank), getCudaDataType<T>(), tau, getCudaDataType<T>(), &geqrf_lwork_u_device, &geqrf_lwork_u_host);
-	cusolverDnXgeqrf_bufferSize(cusolver_handle, cusolver_params, n, rank,
-			getCudaDataType<T>(), mat_v, std::min(n, rank), getCudaDataType<T>(), tau, getCudaDataType<T>(), &geqrf_lwork_v_device, &geqrf_lwork_v_host);
-	cusolverDnXorgqr_bufferSize_wrapper(cusolver_handle, m, rank, rank, mat_u, m, tau, &orgqr_lwork_u);
-	cusolverDnXorgqr_bufferSize_wrapper(cusolver_handle, n, rank, rank, mat_v, n, tau, &orgqr_lwork_v);
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXgeqrf_bufferSize(cusolver_handle, cusolver_params, m, rank,
+			getCudaDataType<T>(), mat_u, m, getCudaDataType<T>(), tau, getCudaDataType<T>(), &geqrf_lwork_u_device, &geqrf_lwork_u_host));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXgeqrf_bufferSize(cusolver_handle, cusolver_params, n, rank,
+			getCudaDataType<T>(), mat_v, n, getCudaDataType<T>(), tau, getCudaDataType<T>(), &geqrf_lwork_v_device, &geqrf_lwork_v_host));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXorgqr_bufferSize_wrapper(cusolver_handle, m, rank, rank, mat_u, m, tau, &orgqr_lwork_u));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXorgqr_bufferSize_wrapper(cusolver_handle, n, rank, rank, mat_v, n, tau, &orgqr_lwork_v));
 	const auto max_lwork = std::max(orgqr_lwork_u, orgqr_lwork_v);
 
 	T* qr_work;
@@ -178,26 +204,26 @@ void mtk::mateval::cuda::latms(
 	cudaMallocHost(&qr_work_host, sizeof(T) * std::max(geqrf_lwork_u_host, geqrf_lwork_v_host));
 
 	// Orthogonalize U and V
-	cusolverDnXgeqrf(
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXgeqrf(
 			cusolver_handle, cusolver_params, m, rank,
-			getCudaDataType<T>(), mat_u, std::min(m, rank), getCudaDataType<T>(), tau, getCudaDataType<T>(),
+			getCudaDataType<T>(), mat_u, m, getCudaDataType<T>(), tau, getCudaDataType<T>(),
 			qr_work_device, geqrf_lwork_u_device,
 			qr_work_host, geqrf_lwork_u_host,
-			qr_info);
-	cusolverDnXorgqr_wrapper(
-			cusolver_handle, m, rank, rank, mat_u, m, tau, qr_work, orgqr_lwork_u, qr_info);
-	cusolverDnXgeqrf(
+			qr_info));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXorgqr_wrapper(
+			cusolver_handle, m, rank, rank, mat_u, m, tau, qr_work, orgqr_lwork_u, qr_info));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXgeqrf(
 			cusolver_handle, cusolver_params, n, rank,
-			getCudaDataType<T>(), mat_v, std::min(n, rank), getCudaDataType<T>(), tau, getCudaDataType<T>(),
+			getCudaDataType<T>(), mat_v, n, getCudaDataType<T>(), tau, getCudaDataType<T>(),
 			qr_work_device, geqrf_lwork_v_device,
 			qr_work_host, geqrf_lwork_v_host,
-			qr_info);
-	cusolverDnXorgqr_wrapper(
-			cusolver_handle, n, rank, rank, mat_v, n, tau, qr_work, orgqr_lwork_v, qr_info);
+			qr_info));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXorgqr_wrapper(
+			cusolver_handle, n, rank, rank, mat_v, n, tau, qr_work, orgqr_lwork_v, qr_info));
 
 	// Destroy handlers
-	cusolverDnDestroyParams(cusolver_params);
-	cusolverDnDestroy(cusolver_handle);
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnDestroyParams(cusolver_params));
+	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnDestroy(cusolver_handle));
 
 	// Free working memory
 	if (working_memory_type == mtk::mateval::cuda::device_memory) {
