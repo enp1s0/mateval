@@ -80,5 +80,7 @@ Generate a matrix with specified singular values using QR factorization
 
 See [test code](./tests/cuda_latms.cu)
 
+Compiler option: `-lmateval_cuda_latms`
+
 ## License
 MIT
