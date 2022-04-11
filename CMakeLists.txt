@@ -26,25 +26,43 @@ set(LIBDIR lib)
 ##########################################################################
 
 # Source files
-file(GLOB SRCS "${SRCDIR}/*.cu")
 file(GLOB HEADERS "${INCDIR}/mateval/*.hpp")
 
+## CUDA
 add_library(mateval_cuda STATIC
-	${SRCS}
+	src/comparison_cuda.cu
 	${HEADERS}
 	)
 
 # Include directories
 target_include_directories(mateval_cuda PUBLIC ${INCDIR})
-target_link_libraries(mateval_cuda PRIVATE
+#target_link_libraries(mateval_cuda PRIVATE
+#	CUDA::cublas
+#	CUDA::cusolver
+#	CUDA::curand
+#	)
+
+# CUDA (2/2)
+set_target_properties(mateval_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(mateval_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+## CUDA LATMS
+add_library(mateval_cuda_latms STATIC
+	src/latms_cuda.cu
+	${HEADERS}
+	)
+
+# Include directories
+target_include_directories(mateval_cuda_latms PUBLIC ${INCDIR})
+target_link_libraries(mateval_cuda_latms PRIVATE
 	CUDA::cublas
 	CUDA::cusolver
 	CUDA::curand
 	)
 
 # CUDA (2/2)
-set_target_properties(mateval_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(mateval_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(mateval_cuda_latms PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(mateval_cuda_latms PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 # Output
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${LIBDIR})
@@ -85,7 +103,7 @@ if(LAPACK_FOUND)
 		set(test_out ${test}.test)
 		add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
 		target_include_directories(${test_out} PRIVATE ${INCDIR})
-		target_link_libraries(${test_out} PRIVATE mateval_cuda)
+		target_link_libraries(${test_out} PRIVATE mateval_cuda_latms)
 		target_link_libraries(${test_out} PRIVATE
 			CUDA::cublas
 			LAPACK::LAPACK
