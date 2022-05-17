@@ -1,4 +1,5 @@
 #include <cfloat>
+#include <cuda_fp16.h>
 #include <mateval/minmax_cuda.hpp>
 
 namespace {
@@ -30,21 +31,21 @@ __global__ void operate_kernel (
 
 		std::size_t mem_index;
 		if (layout == mtk::mateval::col_major) {
-			mem_index = m + n * ld;
+			mem_index = im + in * ld;
 		} else {
-			mem_index = n + m * ld;
+			mem_index = in + im * ld;
 		}
 
 		const double v = mat_ptr[mem_index];
 
 		if (op & mtk::mateval::op_abs_max)
-			local_abs_max = std::max(local_abs_max, std::abs(v));
+			local_abs_max = max(local_abs_max, std::abs(v));
 		if (op & mtk::mateval::op_abs_min)
-			local_abs_min = std::min(local_abs_min, std::abs(v));
+			local_abs_min = min(local_abs_min, std::abs(v));
 		if (op & mtk::mateval::op_max)
-			local_max = std::max(local_max, v);
+			local_max = max(local_max, v);
 		if (op & mtk::mateval::op_min)
-			local_min = std::min(local_min, v);
+			local_min = min(local_min, v);
 	}
 
 
@@ -124,3 +125,7 @@ std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operat
 
 	return res;
 }
+
+template std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate<half  > (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const half  * const, const std::size_t);
+template std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate<float > (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const float * const, const std::size_t);
+template std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate<double> (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const double* const, const std::size_t);
