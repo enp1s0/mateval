@@ -31,6 +31,7 @@ file(GLOB HEADERS "${INCDIR}/mateval/*.hpp")
 ## CUDA
 add_library(mateval_cuda STATIC
 	src/comparison_cuda.cu
+	src/minmax_cuda.cu
 	${HEADERS}
 	)
 
@@ -85,7 +86,7 @@ install(FILES ${HEADERS}
 set(TESTSRCDIR tests)
 
 # CU
-foreach(test cuda cuda_throughput)
+foreach(test cuda cuda_throughput cuda_operation)
 	set(test_out ${test}.test)
 	add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
 	target_include_directories(${test_out} PRIVATE ${INCDIR})
