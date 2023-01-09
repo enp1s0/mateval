@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.18)
 project(mateval_cuda LANGUAGES CXX CUDA)
 
+set(BUILD_TEST OFF)
+
 find_package(CUDA 10.0 REQUIRED)
 find_package(CUDAToolkit REQUIRED)
-find_package(OpenMP)
-find_package(LAPACK)
 
 # CUDA/CXX
 foreach(lang CXX CUDA)
@@ -81,46 +81,49 @@ install(FILES ${HEADERS}
 ##########################################################################
 # Test
 ##########################################################################
+if (${BUILD_TEST})
+	find_package(OpenMP)
+	find_package(LAPACK)
+	# Directory
+	set(TESTSRCDIR tests)
 
-# Directory
-set(TESTSRCDIR tests)
-
-# CU
-foreach(test cuda cuda_throughput cuda_operation)
-	set(test_out ${test}.test)
-	add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
-	target_include_directories(${test_out} PRIVATE ${INCDIR})
-	target_link_libraries(${test_out} PRIVATE mateval_cuda)
-	target_link_libraries(${test_out} PRIVATE
-		CUDA::cublas
-		)
-	if (OpenMP_CXX_FOUND)
-		target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
-	endif()
-endforeach()
-
-if(LAPACK_FOUND)
-	foreach(test cuda_latms)
+	# CU
+	foreach(test cuda cuda_throughput cuda_operation)
 		set(test_out ${test}.test)
 		add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
 		target_include_directories(${test_out} PRIVATE ${INCDIR})
-		target_link_libraries(${test_out} PRIVATE mateval_cuda_latms)
+		target_link_libraries(${test_out} PRIVATE mateval_cuda)
 		target_link_libraries(${test_out} PRIVATE
 			CUDA::cublas
-			LAPACK::LAPACK
 			)
 		if (OpenMP_CXX_FOUND)
 			target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
 		endif()
 	endforeach()
-endif()
 
-# CPP
-foreach(test comparison util)
-	set(test_out ${test}.test)
-	add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
-	target_include_directories(${test_out} PRIVATE ${INCDIR})
-	if (OpenMP_CXX_FOUND)
-		target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
+	if(LAPACK_FOUND)
+		foreach(test cuda_latms)
+			set(test_out ${test}.test)
+			add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
+			target_include_directories(${test_out} PRIVATE ${INCDIR})
+			target_link_libraries(${test_out} PRIVATE mateval_cuda_latms)
+			target_link_libraries(${test_out} PRIVATE
+				CUDA::cublas
+				LAPACK::LAPACK
+				)
+			if (OpenMP_CXX_FOUND)
+				target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
+			endif()
+		endforeach()
 	endif()
-endforeach()
+
+	# CPP
+	foreach(test comparison util)
+		set(test_out ${test}.test)
+		add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
+		target_include_directories(${test_out} PRIVATE ${INCDIR})
+		if (OpenMP_CXX_FOUND)
+			target_link_libraries(${test_out} PRIVATE OpenMP::OpenMP_CXX)
+		endif()
+	endforeach()
+endif()
