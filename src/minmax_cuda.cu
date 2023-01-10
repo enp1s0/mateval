@@ -61,7 +61,7 @@ __global__ void operate_kernel (
 } // unnamed namespace
 
 template <class T>
-std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate (
+mtk::mateval::error_map_t mtk::mateval::cuda::operate (
 	const mtk::mateval::operation_t op,
 	const mtk::mateval::layout_t layout,
 	const std::size_t m,
@@ -105,7 +105,7 @@ std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operat
 		);
 	cudaDeviceSynchronize();
 
-	std::unordered_map<mtk::mateval::operation_t, double> res;
+	mtk::mateval::error_map_t res;
 	if (op & mtk::mateval::op_abs_max) {
 		res.insert(std::make_pair(mtk::mateval::op_abs_max, *abs_max_ptr));
 		cudaFree(abs_max_ptr);
@@ -126,6 +126,6 @@ std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operat
 	return res;
 }
 
-template std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate<half  > (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const half  * const, const std::size_t);
-template std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate<float > (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const float * const, const std::size_t);
-template std::unordered_map<mtk::mateval::operation_t, double> mtk::mateval::cuda::operate<double> (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const double* const, const std::size_t);
+template mtk::mateval::error_map_t mtk::mateval::cuda::operate<half  > (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const half  * const, const std::size_t);
+template mtk::mateval::error_map_t mtk::mateval::cuda::operate<float > (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const float * const, const std::size_t);
+template mtk::mateval::error_map_t mtk::mateval::cuda::operate<double> (const mtk::mateval::operation_t, const mtk::mateval::layout_t, const std::size_t, const std::size_t, const double* const, const std::size_t);

@@ -3,6 +3,7 @@
 #include <vector>
 #include <numeric>
 #include <functional>
+#include <unordered_map>
 
 namespace mtk {
 namespace mateval {
@@ -22,6 +23,8 @@ constexpr error_t relative_residual = 0x001;
 constexpr error_t max_relative_error = 0x002;
 constexpr error_t max_absolute_error = 0x004;
 constexpr error_t forward_error = 0x008;
+
+using error_map_t = std::unordered_map<mtk::mateval::error_t, double>;
 
 namespace utils {
 template <class T>

@@ -1,6 +1,5 @@
 #ifndef __MATEVAL_MINMAX_CUDA_HPP__
 #define __MATEVAL_MINMAX_CUDA_HPP__
-#include <unordered_map>
 #include "common.hpp"
 
 namespace mtk {
@@ -14,7 +13,7 @@ constexpr operation_t op_abs_min = 0x008;
 
 namespace cuda {
 template <class T>
-std::unordered_map<mtk::mateval::operation_t, double> operate (
+mtk::mateval::error_map_t operate (
 	const mtk::mateval::operation_t operation,
 	const mtk::mateval::layout_t layout,
 	const std::size_t m,

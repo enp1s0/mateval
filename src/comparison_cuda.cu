@@ -127,7 +127,7 @@ __global__ void error_AxB_kernel(
 } // noname namespace
 
 template <class A_T, class B_T, class REF_T>
-std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB(
+mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N, const unsigned K,
 		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t r_major,
@@ -167,7 +167,7 @@ std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_
 			);
 	cudaDeviceSynchronize();
 
-	std::unordered_map<mtk::mateval::error_t, double> result;
+	mtk::mateval::error_map_t result;
 
 	double max_error = 0.0;
 	double max_element = 0.0;
@@ -213,9 +213,9 @@ std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_
 }
 
 #define GET_ERROR_AXB_INSTANCE_1(A_T, B_T) \
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<A_T, B_T, half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const half  * const, const unsigned); \
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<A_T, B_T, float >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const float * const, const unsigned); \
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error_AxB<A_T, B_T, double>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const double* const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB<A_T, B_T, half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const half  * const, const unsigned); \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB<A_T, B_T, float >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const float * const, const unsigned); \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB<A_T, B_T, double>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const double* const, const unsigned);
 #define GET_ERROR_AXB_INSTANCE_2(A_T) \
 	GET_ERROR_AXB_INSTANCE_1(A_T, half) \
 	GET_ERROR_AXB_INSTANCE_1(A_T, float) \
@@ -336,7 +336,7 @@ __global__ void error_kernel(
 }
 
 template <class A_T, class REF_T>
-std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error(
+mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N,
 		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t r_major,
@@ -374,7 +374,7 @@ std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error(
 			);
 	cudaDeviceSynchronize();
 
-	std::unordered_map<mtk::mateval::error_t, double> result;
+	mtk::mateval::error_map_t result;
 
 	double max_error = 0.0;
 	double max_element = 0.0;
@@ -419,15 +419,15 @@ std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error(
 	return result;
 }
 
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<half  , half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const half  * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<half  , float >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const float * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<half  , double>(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const double* const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<float , half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const half  * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<float , float >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const float * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<float , double>(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const double* const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<double, half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const half  * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<double, float >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const float * const, const unsigned);
-template std::unordered_map<mtk::mateval::error_t, double> mtk::mateval::cuda::get_error<double, double>(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const double* const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<half  , half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const half  * const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<half  , float >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const float * const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<half  , double>(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const half  * const, const unsigned, const double* const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<float , half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const half  * const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<float , float >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const float * const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<float , double>(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const float * const, const unsigned, const double* const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<double, half  >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const half  * const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<double, float >(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const float * const, const unsigned);
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error<double, double>(const mtk::mateval::error_t, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const double* const, const unsigned, const double* const, const unsigned);
 
 namespace {
 // SVD
