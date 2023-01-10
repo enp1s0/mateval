@@ -10,7 +10,7 @@ namespace mateval {
 namespace cuda {
 
 template <class A_T, class B_T, class REF_T>
-std::unordered_map<mtk::mateval::error_t, double> get_error_AxB(
+mtk::mateval::error_map_t get_error_AxB(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N, const unsigned K,
 		const layout_t a_major, const layout_t b_major, const layout_t r_major,
@@ -20,7 +20,7 @@ std::unordered_map<mtk::mateval::error_t, double> get_error_AxB(
 		);
 
 template <class A_T, class REF_T>
-std::unordered_map<mtk::mateval::error_t, double> get_error(
+mtk::mateval::error_map_t get_error(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N,
 		const layout_t a_major, const layout_t r_major,
