@@ -1,7 +1,6 @@
 #include <mateval/latms_cuda.hpp>
 #include <sstream>
 #include <curand.h>
-#include <cublas.h>
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 
