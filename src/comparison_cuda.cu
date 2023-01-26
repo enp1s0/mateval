@@ -86,7 +86,7 @@ __global__ void error_AxB_kernel(
 		}
 		__syncthreads();
 	}
-	if (error_type & (mtk::mateval::max_relative_error | mtk::mateval::max_absolute_error)) {
+	if (error_type & mtk::mateval::max_absolute_error) {
 		__shared__ double smem_error[block_size];
 		smem_error[threadIdx.x] = error;
 
@@ -106,7 +106,7 @@ __global__ void error_AxB_kernel(
 	}
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = element;
+		smem_element[threadIdx.x] = std::abs(diff) / element;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -170,7 +170,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 	mtk::mateval::error_map_t result;
 
 	double max_error = 0.0;
-	double max_element = 0.0;
+	double max_relative_error = 0.0;
 	double base_norm = 0.0;
 	double diff_norm = 0.0;
 	double *tmp_result_ptr = h_result;
@@ -188,7 +188,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 
 		result.insert(std::make_pair(mtk::mateval::relative_residual, std::sqrt(diff_norm / base_norm)));
 	}
-	if (error & (mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error)) {
+	if (error & (mtk::mateval::max_absolute_error)) {
 #pragma omp parallel for reduction(max: max_error)
 		for (unsigned i = 0; i < grid_size; i++) {
 			max_error = std::max(max_error, tmp_result_ptr[i]);
@@ -201,10 +201,10 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 	if (error & mtk::mateval::max_relative_error) {
 #pragma omp parallel for reduction(max: max_element)
 		for (unsigned i = 0; i < grid_size; i++) {
-			max_element = std::max(max_element, tmp_result_ptr[i]);
+			max_relative_error = std::max(max_relative_error, tmp_result_ptr[i]);
 		}
 		tmp_result_ptr += grid_size;
-		result.insert(std::make_pair(mtk::mateval::max_relative_error, (max_error / max_element)));
+		result.insert(std::make_pair(mtk::mateval::max_relative_error, max_relative_error));
 	}
 
 	cudaFreeHost(h_result);
