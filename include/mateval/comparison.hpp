@@ -94,7 +94,7 @@ mtk::mateval::error_map_t get_error_AxB(
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
 	double max_error = 0.0;
-	double max_element = 0.0;
+	double max_relative_error = 0.0;
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
 	foreach_AxB(
@@ -111,11 +111,11 @@ mtk::mateval::error_map_t get_error_AxB(
 					r = r_ptr[m * ldr + n];
 				}
 				const auto diff = std::abs(r - c);
-				if (error & (mtk::mateval::max_relative_error | mtk::mateval::max_absolute_error)) {
+				if (error & mtk::mateval::max_absolute_error) {
 					max_error = std::max(std::abs(diff), max_error);
 				}
-				if (error & mtk::mateval::max_absolute_error) {
-					max_element = std::max(std::abs(c), max_element);
+				if (error & mtk::mateval::max_relative_error) {
+					max_relative_error = std::max(max_relative_error, std::abs(diff / c));
 				}
 				if (error & mtk::mateval::relative_residual) {
 					base_norm2 += c * c;
@@ -127,7 +127,7 @@ mtk::mateval::error_map_t get_error_AxB(
 		result.insert(std::make_pair(mtk::mateval::relative_residual, std::sqrt(diff_norm2 / base_norm2)));
 	}
 	if (error & mtk::mateval::max_relative_error) {
-		result.insert(std::make_pair(mtk::mateval::max_relative_error, max_error / max_element));
+		result.insert(std::make_pair(mtk::mateval::max_relative_error, max_relative_error));
 	}
 	if (error & mtk::mateval::max_absolute_error) {
 		result.insert(std::make_pair(mtk::mateval::max_absolute_error, max_error));
