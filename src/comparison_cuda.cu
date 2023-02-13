@@ -16,12 +16,13 @@ __global__ void error_AxB_kernel(
 		const R_T* const r_ptr, const unsigned ldr
 		) {
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+	using acc_t = typename mtk::mateval::accumulate_t<R_T>::type;
 
-	double sum = 0.0;
-	double diff = 0.0;
-	double base = 0.0;
-	double error = 0.0;
-	double element = 0.0;
+	acc_t sum = 0.0;
+	acc_t diff = 0.0;
+	acc_t base = 0.0;
+	acc_t error = 0.0;
+	acc_t element = 0.0;
 
 	if (tid < M * N) {
 		const auto row = tid % M;
@@ -42,9 +43,9 @@ __global__ void error_AxB_kernel(
 				b_index = col + k * ldb;
 			}
 
-			const auto da = static_cast<double>(a_ptr[a_index]);
-			const auto db = static_cast<double>(b_ptr[b_index]);
-			sum = fma(da, db, sum);
+			const auto da = static_cast<acc_t>(static_cast<double>(a_ptr[a_index]));
+			const auto db = static_cast<acc_t>(static_cast<double>(b_ptr[b_index]));
+			sum = da * db + sum;
 		}
 
 		std::size_t r_index;
@@ -106,7 +107,7 @@ __global__ void error_AxB_kernel(
 	}
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = std::abs(diff) / element;
+		smem_element[threadIdx.x] = abs(static_cast<double>(diff)) / static_cast<double>(element);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -238,11 +239,13 @@ __global__ void error_kernel(
 		) {
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-	double sum = 0.0;
-	double diff = 0.0;
-	double base = 0.0;
-	double error = 0.0;
-	double element = 0.0;
+	using acc_t = typename mtk::mateval::accumulate_t<R_T>::type;
+
+	acc_t sum = 0.0;
+	acc_t diff = 0.0;
+	acc_t base = 0.0;
+	acc_t error = 0.0;
+	acc_t element = 0.0;
 
 	if (tid < M * N) {
 		const auto row = tid % M;
@@ -255,7 +258,7 @@ __global__ void error_kernel(
 			a_index = col + row * lda;
 		}
 
-		sum = a_ptr[a_index];
+		sum = static_cast<double>(a_ptr[a_index]);
 
 		std::size_t r_index;
 		if (r_major == mtk::mateval::col_major) {

@@ -12,10 +12,10 @@ namespace mateval {
 struct quad_t {
 	double high, low;
 
-	quad_t(const quad_t& a) {high = a.high;low = a.low;}
-	quad_t(const double& a) {high = a;low = 0;}
-	quad_t(const double h, const double l){high = h; low = l;}
-	quad_t() {}
+	CUDA_DEVICE_HOST quad_t(const quad_t& a) {high = a.high;low = a.low;}
+	CUDA_DEVICE_HOST quad_t(const double& a) {high = a;low = 0;}
+	CUDA_DEVICE_HOST quad_t(const double h, const double l){high = h; low = l;}
+	CUDA_DEVICE_HOST quad_t() {}
 
 	CUDA_DEVICE_HOST operator double() const {
 		return high + low;
@@ -93,6 +93,15 @@ CUDA_DEVICE_HOST inline quad_t operator-(
 		const quad_t& b
 		) {
 	return add(a, -b);
+}
+
+CUDA_DEVICE_HOST inline quad_t abs(
+		const quad_t& a
+		) {
+	if (a.high > 0) {
+		return a;
+	}
+	return -a;
 }
 } // namespace mateval
 } // namespace mtk
