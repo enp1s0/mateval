@@ -5,6 +5,7 @@
 
 const std::size_t matrix_dim = 1000;
 const std::size_t matrix_ld  = 1200;
+using compute_t = double;
 
 void test_AxB(
 	const unsigned M,
@@ -22,27 +23,27 @@ void test_AxB(
 	const std::size_t b_mem_size = ldb * (b_major == mtk::mateval::col_major ? N : K);
 	const std::size_t r_mem_size = ldr * (r_major == mtk::mateval::col_major ? N : M);
 
-	auto mat_a = std::unique_ptr<float[]>(new float [a_mem_size]);
-	auto mat_b = std::unique_ptr<float[]>(new float [b_mem_size]);
-	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
+	auto mat_a = std::unique_ptr<compute_t[]>(new compute_t [a_mem_size]);
+	auto mat_b = std::unique_ptr<compute_t[]>(new compute_t [b_mem_size]);
+	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
 
-	float *da, *db, *dr;
-	cudaMalloc(&da, sizeof(float) * a_mem_size);
-	cudaMalloc(&db, sizeof(float) * b_mem_size);
-	cudaMalloc(&dr, sizeof(float) * r_mem_size);
+	compute_t *da, *db, *dr;
+	cudaMalloc(&da, sizeof(compute_t) * a_mem_size);
+	cudaMalloc(&db, sizeof(compute_t) * b_mem_size);
+	cudaMalloc(&dr, sizeof(compute_t) * r_mem_size);
 
 	// Set A
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < K; n++) {
 			const auto index = (a_major == mtk::mateval::col_major ? (m + n * lda) : (m * lda + n));
-			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<float>(M);
+			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<compute_t>(M);
 		}
 	}
 	// Set B
 	for (unsigned m = 0; m < K; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (b_major == mtk::mateval::col_major ? (m + n * ldb) : (m * ldb + n));
-			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<float>(N);
+			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(N);
 		}
 	}
 	// Set ref
@@ -56,9 +57,9 @@ void test_AxB(
 		}
 	}
 
-	cudaMemcpy(da, mat_a.get(), sizeof(float) * a_mem_size, cudaMemcpyDefault);
-	cudaMemcpy(db, mat_b.get(), sizeof(float) * b_mem_size, cudaMemcpyDefault);
-	cudaMemcpy(dr, mat_r.get(), sizeof(float) * r_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(da, mat_a.get(), sizeof(compute_t) * a_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(db, mat_b.get(), sizeof(compute_t) * b_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(dr, mat_r.get(), sizeof(compute_t) * r_mem_size, cudaMemcpyDefault);
 
 	const auto errors = mtk::mateval::cuda::get_error_AxB(
 		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
@@ -102,30 +103,30 @@ void test_A_B(
 	const std::size_t a_mem_size = lda * (a_major == mtk::mateval::col_major ? N : M);
 	const std::size_t b_mem_size = ldb * (b_major == mtk::mateval::col_major ? N : M);
 
-	auto mat_a = std::unique_ptr<float[]>(new float [a_mem_size]);
-	auto mat_b = std::unique_ptr<float[]>(new float [b_mem_size]);
+	auto mat_a = std::unique_ptr<compute_t[]>(new compute_t [a_mem_size]);
+	auto mat_b = std::unique_ptr<compute_t[]>(new compute_t [b_mem_size]);
 
-	float *da, *db;
-	cudaMalloc(&da, sizeof(float) * a_mem_size);
-	cudaMalloc(&db, sizeof(float) * b_mem_size);
+	compute_t *da, *db;
+	cudaMalloc(&da, sizeof(compute_t) * a_mem_size);
+	cudaMalloc(&db, sizeof(compute_t) * b_mem_size);
 
 	// Set A
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (a_major == mtk::mateval::col_major ? (m + n * lda) : (m * lda + n));
-			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<float>(M);
+			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<compute_t>(M);
 		}
 	}
 	// Set B
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (b_major == mtk::mateval::col_major ? (m + n * ldb) : (m * ldb + n));
-			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<float>(M) + (should_be_passed ? 0 : 1);
+			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(M) + (should_be_passed ? 0 : 1);
 		}
 	}
 
-	cudaMemcpy(da, mat_a.get(), sizeof(float) * a_mem_size, cudaMemcpyDefault);
-	cudaMemcpy(db, mat_b.get(), sizeof(float) * b_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(da, mat_a.get(), sizeof(compute_t) * a_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(db, mat_b.get(), sizeof(compute_t) * b_mem_size, cudaMemcpyDefault);
 
 	const auto errors = mtk::mateval::cuda::get_error(
 		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
@@ -172,22 +173,22 @@ void test_UxSxVt(
 	const std::size_t v_mem_size = ldv * (v_major == mtk::mateval::col_major ? K : N);
 	const std::size_t r_mem_size = ldr * (r_major == mtk::mateval::col_major ? N : M);
 
-	auto mat_u = std::unique_ptr<float[]>(new float [u_mem_size]);
-	auto mat_s = std::unique_ptr<float[]>(new float [s_mem_size]);
-	auto mat_v = std::unique_ptr<float[]>(new float [v_mem_size]);
-	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
+	auto mat_u = std::unique_ptr<compute_t[]>(new compute_t [u_mem_size]);
+	auto mat_s = std::unique_ptr<compute_t[]>(new compute_t [s_mem_size]);
+	auto mat_v = std::unique_ptr<compute_t[]>(new compute_t [v_mem_size]);
+	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
 
-	float *du, *ds, *dv, *dr;
-	cudaMalloc(&du, sizeof(float) * u_mem_size);
-	cudaMalloc(&ds, sizeof(float) * s_mem_size);
-	cudaMalloc(&dv, sizeof(float) * v_mem_size);
-	cudaMalloc(&dr, sizeof(float) * r_mem_size);
+	compute_t *du, *ds, *dv, *dr;
+	cudaMalloc(&du, sizeof(compute_t) * u_mem_size);
+	cudaMalloc(&ds, sizeof(compute_t) * s_mem_size);
+	cudaMalloc(&dv, sizeof(compute_t) * v_mem_size);
+	cudaMalloc(&dr, sizeof(compute_t) * r_mem_size);
 
 	// Set U
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < K; n++) {
 			const auto index = (u_major == mtk::mateval::col_major ? (m + n * ldu) : (m * ldu + n));
-			mat_u.get()[index] = (n + 1) * (m + 1) / static_cast<float>(M);
+			mat_u.get()[index] = (n + 1) * (m + 1) / static_cast<compute_t>(M);
 		}
 	}
 	// Set S
@@ -198,7 +199,7 @@ void test_UxSxVt(
 	for (unsigned m = 0; m < K; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (v_major == mtk::mateval::col_major ? (m * ldv + n) : (m + n * ldv));
-			mat_v.get()[index] = (m + 1) * (n + 1) / static_cast<float>(N);
+			mat_v.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(N);
 		}
 	}
 	// Set ref
@@ -212,10 +213,10 @@ void test_UxSxVt(
 		}
 	}
 
-	cudaMemcpy(du, mat_u.get(), sizeof(float) * u_mem_size, cudaMemcpyDefault);
-	cudaMemcpy(ds, mat_s.get(), sizeof(float) * s_mem_size, cudaMemcpyDefault);
-	cudaMemcpy(dv, mat_v.get(), sizeof(float) * v_mem_size, cudaMemcpyDefault);
-	cudaMemcpy(dr, mat_r.get(), sizeof(float) * r_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(du, mat_u.get(), sizeof(compute_t) * u_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(ds, mat_s.get(), sizeof(compute_t) * s_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(dv, mat_v.get(), sizeof(compute_t) * v_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(dr, mat_r.get(), sizeof(compute_t) * r_mem_size, cudaMemcpyDefault);
 
 	const auto residual = mtk::mateval::cuda::residual_UxSxVt(
 		M, N, K,
@@ -253,8 +254,8 @@ void test_orthogonality(
 	const std::size_t r_mem_size = ld * (major == mtk::mateval::col_major ? N : M);
 	const std::size_t vec_length = std::max(M, N);
 
-	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
-	auto vec_r = std::unique_ptr<float[]>(new float [vec_length]);
+	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
+	auto vec_r = std::unique_ptr<compute_t[]>(new compute_t [vec_length]);
 
 	double vec_norm2 = 0.;
 	for (unsigned i = 0; i < vec_length; i++) {
@@ -262,8 +263,8 @@ void test_orthogonality(
 		vec_norm2 += vec_r.get()[i] * vec_r.get()[i];
 	}
 
-	float *dr;
-	cudaMalloc(&dr, sizeof(float) * r_mem_size);
+	compute_t *dr;
+	cudaMalloc(&dr, sizeof(compute_t) * r_mem_size);
 
 	// Set H
 	for (unsigned m = 0; m < M; m++) {
@@ -274,7 +275,7 @@ void test_orthogonality(
 		}
 	}
 
-	cudaMemcpy(dr, mat_r.get(), sizeof(float) * r_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(dr, mat_r.get(), sizeof(compute_t) * r_mem_size, cudaMemcpyDefault);
 
 	const auto orthogonality = mtk::mateval::cuda::orthogonality(
 			M, N,
