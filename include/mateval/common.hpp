@@ -4,6 +4,7 @@
 #include <numeric>
 #include <functional>
 #include <unordered_map>
+#include "quad.hpp"
 
 namespace mtk {
 namespace mateval {
@@ -37,6 +38,10 @@ inline std::pair<T, T> calc_mean_and_var(
 	return std::make_pair(mean, var);
 }
 } // namespace utils
+template <class T>
+struct accumulate_t {using type = double;};
+template <>
+struct accumulate_t<double> {using type = quad_t;};
 
 } // namespace mateval
 } // namespace mtk

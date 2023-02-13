@@ -5,6 +5,8 @@
 const std::size_t matrix_dim = 1000;
 const std::size_t matrix_ld  = 1200;
 
+using compute_t = double;
+
 void test_AxB(
 	const unsigned M,
 	const unsigned N,
@@ -21,22 +23,22 @@ void test_AxB(
 	const std::size_t b_mem_size = ldb * (b_major == mtk::mateval::col_major ? N : K);
 	const std::size_t r_mem_size = ldr * (r_major == mtk::mateval::col_major ? N : M);
 
-	auto mat_a = std::unique_ptr<float[]>(new float [a_mem_size]);
-	auto mat_b = std::unique_ptr<float[]>(new float [b_mem_size]);
-	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
+	auto mat_a = std::unique_ptr<compute_t[]>(new compute_t [a_mem_size]);
+	auto mat_b = std::unique_ptr<compute_t[]>(new compute_t [b_mem_size]);
+	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
 
 	// Set A
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < K; n++) {
 			const auto index = (a_major == mtk::mateval::col_major ? (m + n * lda) : (m * lda + n));
-			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<float>(M);
+			mat_a.get()[index] = (n + 1) * (m + 1) / static_cast<compute_t>(M);
 		}
 	}
 	// Set B
 	for (unsigned m = 0; m < K; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (b_major == mtk::mateval::col_major ? (m + n * ldb) : (m * ldb + n));
-			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<float>(N);
+			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(N);
 		}
 	}
 	// Set ref
@@ -90,7 +92,7 @@ void test_A(
 	const std::size_t a_mem_size = (a_major == mtk::mateval::col_major ? N : M) * lda;
 	const std::size_t r_mem_size = (r_major == mtk::mateval::col_major ? N : M) * ldr;
 
-	auto mat_a = std::unique_ptr<float[]>(new float [a_mem_size]);
+	auto mat_a = std::unique_ptr<compute_t[]>(new compute_t [a_mem_size]);
 	auto mat_r = std::unique_ptr<double[]>(new double [r_mem_size]);
 
 	// Set R and A
@@ -98,8 +100,8 @@ void test_A(
 		for (unsigned n = 0; n < N; n++) {
 			const auto index_r = (r_major == mtk::mateval::col_major ? (m + n * ldr) : (m * ldr + n));
 			const auto index_a = (a_major == mtk::mateval::col_major ? (m + n * lda) : (m * lda + n));
-			mat_r.get()[index_r] = (n + 1) * (m + 1) / static_cast<float>(M);
-			mat_a.get()[index_a] = static_cast<float>(mat_r.get()[index_r] * (should_be_passed ? 1.0f : -1.0f));
+			mat_r.get()[index_r] = (n + 1) * (m + 1) / static_cast<compute_t>(M);
+			mat_a.get()[index_a] = static_cast<compute_t>(mat_r.get()[index_r] * (should_be_passed ? 1.0f : -1.0f));
 		}
 	}
 
@@ -146,16 +148,16 @@ void test_UxSxVt(
 	const std::size_t v_mem_size = ldv * (v_major == mtk::mateval::col_major ? K : N);
 	const std::size_t r_mem_size = ldr * (r_major == mtk::mateval::col_major ? N : M);
 
-	auto mat_u = std::unique_ptr<float[]>(new float [u_mem_size]);
-	auto mat_s = std::unique_ptr<float[]>(new float [s_mem_size]);
-	auto mat_v = std::unique_ptr<float[]>(new float [v_mem_size]);
-	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
+	auto mat_u = std::unique_ptr<compute_t[]>(new compute_t [u_mem_size]);
+	auto mat_s = std::unique_ptr<compute_t[]>(new compute_t [s_mem_size]);
+	auto mat_v = std::unique_ptr<compute_t[]>(new compute_t [v_mem_size]);
+	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
 
 	// Set U
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < K; n++) {
 			const auto index = (u_major == mtk::mateval::col_major ? (m + n * ldu) : (m * ldu + n));
-			mat_u.get()[index] = (n + 1) * (m + 1) / static_cast<float>(M);
+			mat_u.get()[index] = (n + 1) * (m + 1) / static_cast<compute_t>(M);
 		}
 	}
 	// Set S
@@ -166,7 +168,7 @@ void test_UxSxVt(
 	for (unsigned m = 0; m < K; m++) {
 		for (unsigned n = 0; n < N; n++) {
 			const auto index = (v_major == mtk::mateval::col_major ? (m * ldv + n) : (m + n * ldv));
-			mat_v.get()[index] = (m + 1) * (n + 1) / static_cast<float>(N);
+			mat_v.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(N);
 		}
 	}
 	// Set ref
@@ -211,8 +213,8 @@ void test_orthogonality(
 	const std::size_t r_mem_size = ld * (major == mtk::mateval::col_major ? N : M);
 	const std::size_t vec_length = std::max(M, N);
 
-	auto mat_r = std::unique_ptr<float[]>(new float [r_mem_size]);
-	auto vec_r = std::unique_ptr<float[]>(new float [vec_length]);
+	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
+	auto vec_r = std::unique_ptr<compute_t[]>(new compute_t [vec_length]);
 
 	double vec_norm2 = 0.;
 	for (unsigned i = 0; i < vec_length; i++) {

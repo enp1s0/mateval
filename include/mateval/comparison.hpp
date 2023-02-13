@@ -18,13 +18,14 @@ void foreach_AxB(
 		const B_T* const b_ptr, const unsigned ldb,
 		const Func func
 		) {
+	using acc_t = typename mtk::mateval::accumulate_t<B_T>::type;
 #pragma omp parallel for collapse(2)
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
-			double c = 0.0;
+			acc_t c = 0.0;
 			for (unsigned k = 0; k < K; k++) {
 				// load A
-				double a;
+				acc_t a;
 				if (a_major == col_major) {
 					a = a_ptr[k * lda + m];
 				} else {
@@ -32,7 +33,7 @@ void foreach_AxB(
 				}
 
 				// load B
-				double b;
+				acc_t b;
 				if (b_major == col_major) {
 					b = b_ptr[k + ldb * n];
 				} else {
@@ -41,7 +42,7 @@ void foreach_AxB(
 				c += a * b;
 			}
 #pragma omp critical
-			{func(c, m, n);}
+			{func(static_cast<double>(c), m, n);}
 		}
 	}
 }
@@ -54,14 +55,15 @@ void foreach_AxB_with_abs(
 		const B_T* const b_ptr, const unsigned ldb,
 		const Func func
 		) {
+	using acc_t = typename mtk::mateval::accumulate_t<B_T>::type;
 #pragma omp parallel for collapse(2)
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
-			double c = 0.0;
-			double abs_c = 0.0;
+			acc_t c = 0.0;
+			acc_t abs_c = 0.0;
 			for (unsigned k = 0; k < K; k++) {
 				// load A
-				double a;
+				acc_t a;
 				if (a_major == col_major) {
 					a = a_ptr[k * lda + m];
 				} else {
@@ -69,17 +71,17 @@ void foreach_AxB_with_abs(
 				}
 
 				// load B
-				double b;
+				acc_t b;
 				if (b_major == col_major) {
 					b = b_ptr[k + ldb * n];
 				} else {
 					b = b_ptr[k * ldb + n];
 				}
 				c += a * b;
-				abs_c += std::abs(a) * std::abs(b);
+				abs_c += abs(a) * abs(b);
 			}
 #pragma omp critical
-			{func(c, abs_c, m, n);}
+			{func(static_cast<double>(c), static_cast<double>(abs_c), m, n);}
 		}
 	}
 }
