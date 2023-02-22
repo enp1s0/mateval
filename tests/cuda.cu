@@ -62,7 +62,7 @@ void test_AxB(
 	cudaMemcpy(dr, mat_r.get(), sizeof(compute_t) * r_mem_size, cudaMemcpyDefault);
 
 	const auto errors = mtk::mateval::cuda::get_error_AxB(
-		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual | mtk::mateval::avg_relative_error,
 		M, N, K,
 		a_major, b_major, r_major,
 		da, lda,
@@ -72,7 +72,8 @@ void test_AxB(
 	const auto residual = errors.at(mtk::mateval::relative_residual);
 	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
 	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
-	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
+	const auto avg_relative_error = errors.at(mtk::mateval::avg_relative_error);
+	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s), avg_relative_error=%e(%6s)\n",
 				__func__,
 				M, N, K,
 				lda, ldb, ldr,
@@ -84,7 +85,9 @@ void test_AxB(
 				max_error,
 				((max_error < (K * K * K * 5e-8) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_relative_error,
-				((max_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
+				((max_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
+				avg_relative_error,
+				((avg_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 
 	cudaFree(da);
@@ -129,7 +132,7 @@ void test_A_B(
 	cudaMemcpy(db, mat_b.get(), sizeof(compute_t) * b_mem_size, cudaMemcpyDefault);
 
 	const auto errors = mtk::mateval::cuda::get_error(
-		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual | mtk::mateval::avg_relative_error,
 		M, N,
 		a_major, b_major,
 		da, lda,
@@ -138,7 +141,8 @@ void test_A_B(
 	const auto residual = errors.at(mtk::mateval::relative_residual);
 	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
 	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
-	std::printf("[%s]{M=%3u,N=%3u,lda=%u,ldb=%u,a_major=%3s,b_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
+	const auto avg_relative_error = errors.at(mtk::mateval::avg_relative_error);
+	std::printf("[%s]{M=%3u,N=%3u,lda=%u,ldb=%u,a_major=%3s,b_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s), avg_relative_error=%e(%6s)\n",
 				__func__,
 				M, N,
 				lda, ldb,
@@ -149,7 +153,9 @@ void test_A_B(
 				max_error,
 				((max_error < (M * M * 5e-8) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_relative_error,
-				((max_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
+				((max_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
+				avg_relative_error,
+				((avg_relative_error < (1e-6) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 
 	cudaFree(da);
