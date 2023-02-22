@@ -24,6 +24,7 @@ constexpr error_t relative_residual = 0x001;
 constexpr error_t max_relative_error = 0x002;
 constexpr error_t max_absolute_error = 0x004;
 constexpr error_t forward_error = 0x008;
+constexpr error_t avg_relative_error = 0x010;
 
 using error_map_t = std::unordered_map<mtk::mateval::error_t, double>;
 
