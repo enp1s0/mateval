@@ -87,6 +87,7 @@ __global__ void error_AxB_kernel(
 		}
 		__syncthreads();
 	}
+
 	if (error_type & mtk::mateval::max_absolute_error) {
 		__shared__ double smem_error[block_size];
 		smem_error[threadIdx.x] = error;
@@ -105,6 +106,7 @@ __global__ void error_AxB_kernel(
 			my_result_ptr += gridDim.x;
 		}
 	}
+
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
 		smem_element[threadIdx.x] = abs(static_cast<double>(diff)) / static_cast<double>(element);
@@ -122,6 +124,27 @@ __global__ void error_AxB_kernel(
 			my_result_ptr[blockIdx.x] = smem_element[0];
 			my_result_ptr += gridDim.x;
 		}
+	}
+
+	if (error_type & mtk::mateval::avg_relative_error) {
+		__shared__ double smem_diff[block_size];
+		smem_diff[threadIdx.x] = static_cast<double>(element) != 0 ? abs(static_cast<double>(diff)) / static_cast<double>(element) : 0.;
+
+		__syncthreads();
+		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
+			if (threadIdx.x < i) {
+				const auto i0 = threadIdx.x;
+				const auto i1 = i0 + i;
+				smem_diff[i0] += smem_diff[i1];
+			}
+			__syncthreads();
+		}
+		__syncthreads();
+		if (threadIdx.x == 0) {
+			my_result_ptr[blockIdx.x] = smem_diff[0];
+			my_result_ptr += gridDim.x;
+		}
+		__syncthreads();
 	}
 }
 
@@ -149,6 +172,9 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 	if (error & mtk::mateval::max_relative_error) {
 		num_result_elements += 1;
 	}
+	if (error & mtk::mateval::avg_relative_error) {
+		num_result_elements += 1;
+	}
 
 	double *h_result;
 	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
@@ -172,6 +198,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 
 	double max_error = 0.0;
 	double max_relative_error = 0.0;
+	double sum_relative_error = 0.0;
 	double base_norm = 0.0;
 	double diff_norm = 0.0;
 	double *tmp_result_ptr = h_result;
@@ -206,6 +233,14 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 		}
 		tmp_result_ptr += grid_size;
 		result.insert(std::make_pair(mtk::mateval::max_relative_error, max_relative_error));
+	}
+	if (error & mtk::mateval::avg_relative_error) {
+#pragma omp parallel for reduction(max: max_element)
+		for (unsigned i = 0; i < grid_size; i++) {
+			sum_relative_error += tmp_result_ptr[i];
+		}
+		tmp_result_ptr += grid_size;
+		result.insert(std::make_pair(mtk::mateval::avg_relative_error, sum_relative_error / (M * N)));
 	}
 
 	cudaFreeHost(h_result);
@@ -335,6 +370,24 @@ __global__ void error_kernel(
 			my_result_ptr += gridDim.x;
 		}
 	}
+	if (error_type & mtk::mateval::avg_relative_error) {
+		__shared__ double smem_element[block_size];
+		smem_element[threadIdx.x] = static_cast<double>(element) != 0 ? abs(static_cast<double>(diff)) / static_cast<double>(element) : 0.;
+
+		__syncthreads();
+		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
+			if (threadIdx.x < i) {
+				const auto i0 = threadIdx.x;
+				const auto i1 = i0 + i;
+				smem_element[i0] = smem_element[i1];
+			}
+			__syncthreads();
+		}
+		if (threadIdx.x == 0) {
+			my_result_ptr[blockIdx.x] = smem_element[0];
+			my_result_ptr += gridDim.x;
+		}
+	}
 }
 }
 
@@ -359,6 +412,9 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 	if (error & mtk::mateval::max_relative_error) {
 		num_result_elements += 1;
 	}
+	if (error & mtk::mateval::avg_relative_error) {
+		num_result_elements += 1;
+	}
 
 	double *h_result;
 	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
@@ -380,6 +436,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 	mtk::mateval::error_map_t result;
 
 	double max_error = 0.0;
+	double sum_error = 0.0;
 	double max_element = 0.0;
 	double base_norm = 0.0;
 	double diff_norm = 0.0;
@@ -415,6 +472,14 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 		}
 		tmp_result_ptr += grid_size;
 		result.insert(std::make_pair(mtk::mateval::max_relative_error, (max_error / max_element)));
+	}
+	if (error & mtk::mateval::avg_relative_error) {
+#pragma omp parallel for reduction(max: max_element)
+		for (unsigned i = 0; i < grid_size; i++) {
+			sum_error += tmp_result_ptr[i];
+		}
+		tmp_result_ptr += grid_size;
+		result.insert(std::make_pair(mtk::mateval::avg_relative_error, sum_error / (M * N)));
 	}
 
 	cudaFreeHost(h_result);

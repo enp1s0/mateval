@@ -53,7 +53,7 @@ void test_AxB(
 	}
 
 	const auto errors = mtk::mateval::get_error_AxB(
-		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual | mtk::mateval::avg_relative_error,
 		M, N, K,
 		a_major, b_major, r_major,
 		mat_a.get(), lda,
@@ -63,8 +63,9 @@ void test_AxB(
 	const auto residual = errors.at(mtk::mateval::relative_residual);
 	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
 	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
+	const auto avg_relative_error = errors.at(mtk::mateval::avg_relative_error);
 
-	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
+	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s), avg_relative_error=%e(%6s)\n",
 				__func__,
 				M, N, K,
 				lda, ldb, ldr,
@@ -76,6 +77,8 @@ void test_AxB(
 				max_error,
 				((max_error < (K * K * K * 5e-8) == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_relative_error,
+				((avg_relative_error < 1e-6 == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
+				avg_relative_error,
 				((max_relative_error < 1e-6 == should_be_passed) ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 }
@@ -106,7 +109,7 @@ void test_A(
 	}
 
 	const auto errors = mtk::mateval::get_error(
-		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual,
+		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual | mtk::mateval::avg_relative_error,
 		M, N,
 		a_major, r_major,
 		mat_a.get(), lda,
@@ -115,8 +118,9 @@ void test_A(
 	const auto residual = errors.at(mtk::mateval::relative_residual);
 	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
 	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
+	const auto avg_relative_error = errors.at(mtk::mateval::avg_relative_error);
 
-	std::printf("[%s]{M=%3u,N=%3u,lda=%u,ldr=%u,a_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s)\n",
+	std::printf("[%s]{M=%3u,N=%3u,lda=%u,ldr=%u,a_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s), avg_relative_error=%e(%6s)\n",
 				__func__,
 				M, N,
 				lda, ldr,
@@ -127,6 +131,8 @@ void test_A(
 				max_error,
 				((max_error < 5e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_relative_error,
+				((avg_relative_error < 5e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
+				avg_relative_error,
 				((max_relative_error < 5e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m")
 				);
 }
