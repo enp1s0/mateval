@@ -97,6 +97,7 @@ mtk::mateval::error_map_t get_error_AxB(
 		) {
 	double max_error = 0.0;
 	double max_relative_error = 0.0;
+	double sum_relative_error = 0.0;
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
 	foreach_AxB(
@@ -123,6 +124,11 @@ mtk::mateval::error_map_t get_error_AxB(
 					base_norm2 += c * c;
 					diff_norm2 += diff * diff;
 				}
+				if (error & mtk::mateval::avg_relative_error) {
+					if (r != 0) {
+						sum_relative_error += diff / std::abs(r);
+					}
+				}
 			});
 	mtk::mateval::error_map_t result;
 	if (error & mtk::mateval::relative_residual) {
@@ -133,6 +139,9 @@ mtk::mateval::error_map_t get_error_AxB(
 	}
 	if (error & mtk::mateval::max_absolute_error) {
 		result.insert(std::make_pair(mtk::mateval::max_absolute_error, max_error));
+	}
+	if (error & mtk::mateval::avg_relative_error) {
+		result.insert(std::make_pair(mtk::mateval::avg_relative_error, sum_relative_error / (M * N)));
 	}
 	return result;
 }
@@ -148,6 +157,7 @@ mtk::mateval::error_map_t get_error(
 	double base_norm2 = 0.0;
 	double diff_norm2 = 0.0;
 	double max_error = 0.0;
+	double sum_relative_error = 0.0;
 	double max_element = 0.0;
 #pragma omp parallel for collapse(2) reduction(max: max_error) reduction(+: base_norm2) reduction(+: diff_norm2)
 	for (unsigned m = 0; m < M; m++) {
@@ -164,16 +174,21 @@ mtk::mateval::error_map_t get_error(
 				a = a_ptr[n + m * lda];
 			}
 			const auto diff = a - r;
-				if (error & (mtk::mateval::max_relative_error | mtk::mateval::max_absolute_error)) {
-					max_error = std::max(std::abs(diff), max_error);
+			if (error & (mtk::mateval::max_relative_error | mtk::mateval::max_absolute_error)) {
+				max_error = std::max(std::abs(diff), max_error);
+			}
+			if (error & mtk::mateval::max_absolute_error) {
+				max_element = std::max(std::abs(r), max_element);
+			}
+			if (error & mtk::mateval::relative_residual) {
+				base_norm2 += r * r;
+				diff_norm2 += diff * diff;
+			}
+			if (error & mtk::mateval::avg_relative_error) {
+				if (r != 0) {
+					sum_relative_error += diff / std::abs(r);
 				}
-				if (error & mtk::mateval::max_absolute_error) {
-					max_element = std::max(std::abs(r), max_element);
-				}
-				if (error & mtk::mateval::relative_residual) {
-					base_norm2 += r * r;
-					diff_norm2 += diff * diff;
-				}
+			}
 		}
 	}
 	mtk::mateval::error_map_t result;
@@ -185,6 +200,9 @@ mtk::mateval::error_map_t get_error(
 	}
 	if (error & mtk::mateval::max_absolute_error) {
 		result.insert(std::make_pair(mtk::mateval::max_absolute_error, max_error));
+	}
+	if (error & mtk::mateval::avg_relative_error) {
+		result.insert(std::make_pair(mtk::mateval::avg_relative_error, sum_relative_error / (M * N)));
 	}
 	return result;
 }
