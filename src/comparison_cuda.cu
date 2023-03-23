@@ -1,9 +1,49 @@
 #include <mateval/comparison_cuda.hpp>
 #include <cmath>
 #include <cuda_fp16.h>
+#include <cuComplex.h>
 
 namespace {
 constexpr unsigned block_size = 256;
+
+template <class T>
+struct cmplx {
+	using real_t = T;
+	T x, y;
+
+	__device__ __host__ cmplx(const T a) {x = a, y = 0;}
+	__device__ __host__ cmplx(const T a, const T b) {x = a, y = b;}
+};
+template <class T>
+__device__ __host__ cmplx<T> operator+(const cmplx<T> a, const cmplx<T> b){return cmplx<T>{a.x + b.x, a.y + b.y};}
+template <class T>
+__device__ __host__ cmplx<T> operator-(const cmplx<T> a, const cmplx<T> b){return cmplx<T>{a.x - b.x, a.y - b.y};}
+template <class T>
+__device__ __host__ cmplx<T> operator*(const cmplx<T> a, const cmplx<T> b){return cmplx<T>{a.x * b.x - a.y * b.y, a.y * b.x + b.y * a.x};}
+
+template <class T>
+struct rc_acc_type {using type = typename mtk::mateval::accumulate_t<T>::type;};
+template <>
+struct rc_acc_type<cuComplex      > {using type = cmplx<double>;};
+template <>
+struct rc_acc_type<cuDoubleComplex> {using type = cmplx<typename mtk::mateval::accumulate_t<double>::type>;};
+
+template <class ACC_T, class T>
+__device__ ACC_T cast2acc(const T a) {return static_cast<double>(a);}
+template <class ACC_T>
+__device__ ACC_T cast2acc(const cuComplex a) {return ACC_T{static_cast<typename ACC_T::real_t>(a.x), static_cast<typename ACC_T::real_t>(a.y)};}
+template <class ACC_T>
+__device__ ACC_T cast2acc(const cuDoubleComplex a) {return ACC_T{static_cast<typename ACC_T::real_t>(a.x), static_cast<typename ACC_T::real_t>(a.y)};}
+
+template <class T>
+__device__ __host__ double norm2(const T a) {return a * a;};
+template <class T>
+__device__ __host__ double norm2(const cmplx<T> a) {return a.x * a.x + a.y * a.y;};
+
+template <class T>
+__device__ __host__ double absmax(const T a) {return abs(static_cast<double>(a));};
+template <class T>
+__device__ __host__ double absmax(const cmplx<T> a) {return max(abs(static_cast<double>(a.x)), abs(static_cast<double>(a.y)));};
 
 template <class A_T, class B_T, class R_T>
 __global__ void error_AxB_kernel(
@@ -16,13 +56,9 @@ __global__ void error_AxB_kernel(
 		const R_T* const r_ptr, const unsigned ldr
 		) {
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
-	using acc_t = typename mtk::mateval::accumulate_t<R_T>::type;
+	using acc_t = typename rc_acc_type<R_T>::type;
 
-	acc_t sum = 0.0;
-	acc_t diff = 0.0;
-	acc_t base = 0.0;
-	acc_t error = 0.0;
-	acc_t element = 0.0;
+	acc_t sum(0.), diff(0.), base(0.);
 
 	if (tid < M * N) {
 		const auto row = tid % M;
@@ -43,8 +79,8 @@ __global__ void error_AxB_kernel(
 				b_index = col + k * ldb;
 			}
 
-			const auto da = static_cast<acc_t>(static_cast<double>(a_ptr[a_index]));
-			const auto db = static_cast<acc_t>(static_cast<double>(b_ptr[b_index]));
+			const auto da = cast2acc<acc_t>(a_ptr[a_index]);
+			const auto db = cast2acc<acc_t>(b_ptr[b_index]);
 			sum = da * db + sum;
 		}
 
@@ -55,18 +91,16 @@ __global__ void error_AxB_kernel(
 			r_index = col + row * ldr;
 		}
 
-		base = r_ptr[r_index];
+		base = cast2acc<acc_t>(r_ptr[r_index]);
 		diff = sum - base;
-		error = abs(diff);
-		element = abs(sum);
 	}
 
 	double* my_result_ptr = result_ptr;
 	if (error_type & mtk::mateval::relative_residual) {
 		__shared__ double smem_diff[block_size];
 		__shared__ double smem_base[block_size];
-		smem_diff[threadIdx.x] = diff * diff;
-		smem_base[threadIdx.x] = base * base;
+		smem_diff[threadIdx.x] = norm2(diff);
+		smem_base[threadIdx.x] = norm2(base);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -90,7 +124,7 @@ __global__ void error_AxB_kernel(
 
 	if (error_type & mtk::mateval::max_absolute_error) {
 		__shared__ double smem_error[block_size];
-		smem_error[threadIdx.x] = error;
+		smem_error[threadIdx.x] = absmax(diff);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -109,7 +143,7 @@ __global__ void error_AxB_kernel(
 
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = abs(static_cast<double>(diff)) / static_cast<double>(element);
+		smem_element[threadIdx.x] = (absmax(sum) != 0) ? (absmax(diff) / absmax(sum)) : 0;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -128,7 +162,7 @@ __global__ void error_AxB_kernel(
 
 	if (error_type & mtk::mateval::avg_relative_error) {
 		__shared__ double smem_diff[block_size];
-		smem_diff[threadIdx.x] = static_cast<double>(element) != 0 ? abs(static_cast<double>(diff)) / static_cast<double>(element) : 0.;
+		smem_diff[threadIdx.x] = (absmax(sum) != 0) ? (absmax(diff) / absmax(sum)) : 0;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -262,6 +296,17 @@ template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB<A_T, B_T, d
 	GET_ERROR_AXB_INSTANCE_2(double)
 GET_ERROR_AXB_INSTANCE_3
 
+#define GET_ERROR_AXB_INSTANCE_1_COMPLEX(A_T, B_T) \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB<A_T, B_T, cuComplex >(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const cuComplex * const, const unsigned); \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB<A_T, B_T, cuDoubleComplex>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const A_T* const, const unsigned, const B_T* const, const unsigned, const cuDoubleComplex* const, const unsigned);
+#define GET_ERROR_AXB_INSTANCE_2_COMPLEX(A_T) \
+	GET_ERROR_AXB_INSTANCE_1_COMPLEX(A_T, cuComplex) \
+	GET_ERROR_AXB_INSTANCE_1_COMPLEX(A_T, cuDoubleComplex)
+#define GET_ERROR_AXB_INSTANCE_3_COMPLEX \
+	GET_ERROR_AXB_INSTANCE_2_COMPLEX(cuComplex) \
+	GET_ERROR_AXB_INSTANCE_2_COMPLEX(cuDoubleComplex)
+GET_ERROR_AXB_INSTANCE_3_COMPLEX
+
 namespace {
 template <class A_T, class R_T>
 __global__ void error_kernel(
@@ -274,13 +319,9 @@ __global__ void error_kernel(
 		) {
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-	using acc_t = typename mtk::mateval::accumulate_t<R_T>::type;
+	using acc_t = typename rc_acc_type<R_T>::type;
 
-	acc_t sum = 0.0;
-	acc_t diff = 0.0;
-	acc_t base = 0.0;
-	acc_t error = 0.0;
-	acc_t element = 0.0;
+	acc_t sum(0.), diff(0.), base(0.);
 
 	if (tid < M * N) {
 		const auto row = tid % M;
@@ -304,16 +345,14 @@ __global__ void error_kernel(
 
 		base = r_ptr[r_index];
 		diff = sum - base;
-		error = abs(diff);
-		element = abs(sum);
 	}
 
 	double* my_result_ptr = result_ptr;
 	if (error_type & mtk::mateval::relative_residual) {
 		__shared__ double smem_diff[block_size];
 		__shared__ double smem_base[block_size];
-		smem_diff[threadIdx.x] = diff * diff;
-		smem_base[threadIdx.x] = base * base;
+		smem_diff[threadIdx.x] = norm2(diff);
+		smem_base[threadIdx.x] = norm2(base);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -334,9 +373,10 @@ __global__ void error_kernel(
 		}
 		__syncthreads();
 	}
-	if (error_type & (mtk::mateval::max_relative_error | mtk::mateval::max_absolute_error)) {
+
+	if (error_type & mtk::mateval::max_absolute_error) {
 		__shared__ double smem_error[block_size];
-		smem_error[threadIdx.x] = error;
+		smem_error[threadIdx.x] = absmax(diff);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -352,9 +392,10 @@ __global__ void error_kernel(
 			my_result_ptr += gridDim.x;
 		}
 	}
+
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = element;
+		smem_element[threadIdx.x] = (absmax(base) != 0) ? (absmax(diff) / absmax(base)) : 0;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -370,23 +411,26 @@ __global__ void error_kernel(
 			my_result_ptr += gridDim.x;
 		}
 	}
+
 	if (error_type & mtk::mateval::avg_relative_error) {
-		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = static_cast<double>(element) != 0 ? abs(static_cast<double>(diff)) / static_cast<double>(element) : 0.;
+		__shared__ double smem_diff[block_size];
+		smem_diff[threadIdx.x] = (absmax(base) != 0) ? (absmax(diff) / absmax(base)) : 0;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
 			if (threadIdx.x < i) {
 				const auto i0 = threadIdx.x;
 				const auto i1 = i0 + i;
-				smem_element[i0] = smem_element[i1];
+				smem_diff[i0] += smem_diff[i1];
 			}
 			__syncthreads();
 		}
+		__syncthreads();
 		if (threadIdx.x == 0) {
-			my_result_ptr[blockIdx.x] = smem_element[0];
+			my_result_ptr[blockIdx.x] = smem_diff[0];
 			my_result_ptr += gridDim.x;
 		}
+		__syncthreads();
 	}
 }
 }
