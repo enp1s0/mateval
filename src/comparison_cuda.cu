@@ -45,6 +45,11 @@ __device__ __host__ double absmax(const T a) {return abs(static_cast<double>(a))
 template <class T>
 __device__ __host__ double absmax(const cmplx<T> a) {return max(abs(static_cast<double>(a.x)), abs(static_cast<double>(a.y)));};
 
+template <class T>
+__device__ __host__ double relative_error(const T diff, const T base) {return (static_cast<double>(base) != 0.) ? abs(static_cast<double>(diff) / static_cast<double>(base)) : 0;};
+template <class T>
+__device__ __host__ double relative_error(const cmplx<T> diff, const cmplx<T> base) {return norm2(base) == 0 ? sqrt(norm2(diff) / norm2(base)) : 0;};
+
 template <class A_T, class B_T, class R_T>
 __global__ void error_AxB_kernel(
 		const mtk::mateval::error_t error_type,
@@ -143,7 +148,7 @@ __global__ void error_AxB_kernel(
 
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = (absmax(sum) != 0) ? (absmax(diff) / absmax(sum)) : 0;
+		smem_element[threadIdx.x] = relative_error(diff, base);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -162,7 +167,7 @@ __global__ void error_AxB_kernel(
 
 	if (error_type & mtk::mateval::avg_relative_error) {
 		__shared__ double smem_diff[block_size];
-		smem_diff[threadIdx.x] = (absmax(sum) != 0) ? (absmax(diff) / absmax(sum)) : 0;
+		smem_diff[threadIdx.x] = relative_error(diff, base);
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -395,7 +400,7 @@ __global__ void error_kernel(
 
 	if (error_type & mtk::mateval::max_relative_error) {
 		__shared__ double smem_element[block_size];
-		smem_element[threadIdx.x] = (absmax(base) != 0) ? (absmax(diff) / absmax(base)) : 0;
+		smem_element[threadIdx.x] = (norm2(base) != 0) ? sqrt(norm2(diff) / norm2(base)) : 0;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
@@ -414,7 +419,7 @@ __global__ void error_kernel(
 
 	if (error_type & mtk::mateval::avg_relative_error) {
 		__shared__ double smem_diff[block_size];
-		smem_diff[threadIdx.x] = (absmax(base) != 0) ? (absmax(diff) / absmax(base)) : 0;
+		smem_diff[threadIdx.x] = (absmax(base) != 0) ? sqrt(norm2(diff) / norm2(base)) : 0;
 
 		__syncthreads();
 		for (unsigned i = block_size / 2; i >= 1; i >>= 1) {
