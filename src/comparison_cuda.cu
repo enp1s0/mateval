@@ -481,7 +481,6 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 
 	double max_error = 0.0;
 	double sum_error = 0.0;
-	double max_element = 0.0;
 	double base_norm = 0.0;
 	double diff_norm = 0.0;
 	double *tmp_result_ptr = h_result;
@@ -512,10 +511,10 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 	if (error & mtk::mateval::max_relative_error) {
 #pragma omp parallel for reduction(max: max_element)
 		for (unsigned i = 0; i < grid_size; i++) {
-			max_element = std::max(max_element, tmp_result_ptr[i]);
+			max_error = std::max(max_error, tmp_result_ptr[i]);
 		}
 		tmp_result_ptr += grid_size;
-		result.insert(std::make_pair(mtk::mateval::max_relative_error, (max_error / max_element)));
+		result.insert(std::make_pair(mtk::mateval::max_relative_error, max_error));
 	}
 	if (error & mtk::mateval::avg_relative_error) {
 #pragma omp parallel for reduction(max: max_element)
