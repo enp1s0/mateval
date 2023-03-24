@@ -29,11 +29,11 @@ template <>
 struct rc_acc_type<cuDoubleComplex> {using type = cmplx<typename mtk::mateval::accumulate_t<double>::type>;};
 
 template <class ACC_T, class T>
-__device__ ACC_T cast2acc(const T a) {return static_cast<double>(a);}
+__device__ __host__ ACC_T cast2acc(const T a) {return static_cast<double>(a);}
 template <class ACC_T>
-__device__ ACC_T cast2acc(const cuComplex a) {return ACC_T{static_cast<typename ACC_T::real_t>(a.x), static_cast<typename ACC_T::real_t>(a.y)};}
+__device__ __host__ ACC_T cast2acc(const cuComplex a) {return ACC_T{static_cast<typename ACC_T::real_t>(a.x), static_cast<typename ACC_T::real_t>(a.y)};}
 template <class ACC_T>
-__device__ ACC_T cast2acc(const cuDoubleComplex a) {return ACC_T{static_cast<typename ACC_T::real_t>(a.x), static_cast<typename ACC_T::real_t>(a.y)};}
+__device__ __host__ ACC_T cast2acc(const cuDoubleComplex a) {return ACC_T{static_cast<typename ACC_T::real_t>(a.x), static_cast<typename ACC_T::real_t>(a.y)};}
 
 template <class T>
 __device__ __host__ double norm2(const T a) {return a * a;};
@@ -50,14 +50,17 @@ __device__ __host__ double relative_error(const T diff, const T base) {return (s
 template <class T>
 __device__ __host__ double relative_error(const cmplx<T> diff, const cmplx<T> base) {return norm2(base) == 0 ? sqrt(norm2(diff) / norm2(base)) : 0;};
 
-template <class A_T, class B_T, class R_T>
-__global__ void error_AxB_kernel(
+template <class A_T, class B_T, class C_T, class R_T, class ALPHA_T, class BETA_T>
+__global__ void error_GEMM_kernel(
 		const mtk::mateval::error_t error_type,
 		double* const result_ptr,
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t r_major,
+		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t c_major, const mtk::mateval::layout_t r_major,
+		const ALPHA_T alpha,
 		const A_T* const a_ptr, const unsigned lda,
 		const B_T* const b_ptr, const unsigned ldb,
+		const BETA_T beta,
+		const C_T* const c_ptr, const unsigned ldc,
 		const R_T* const r_ptr, const unsigned ldr
 		) {
 	const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -87,6 +90,19 @@ __global__ void error_AxB_kernel(
 			const auto da = cast2acc<acc_t>(a_ptr[a_index]);
 			const auto db = cast2acc<acc_t>(b_ptr[b_index]);
 			sum = da * db + sum;
+		}
+
+		if (c_ptr != nullptr && norm2(beta) != 0) {
+			std::size_t c_index;
+			if (c_major == mtk::mateval::col_major) {
+				c_index = row + col * ldc;
+			} else {
+				c_index = col + row * ldc;
+			}
+			const auto c = cast2acc<acc_t>(c_ptr[c_index]);
+			sum = sum * alpha + c * beta;
+		} else {
+			sum = sum * alpha;
 		}
 
 		std::size_t r_index;
@@ -186,20 +202,21 @@ __global__ void error_AxB_kernel(
 		__syncthreads();
 	}
 }
-
-} // noname namespace
-
-template <class A_T, class B_T, class REF_T>
-mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
+template <class A_T, class B_T, class C_T, class REF_T, class ACC_T>
+mtk::mateval::error_map_t get_error_GEMM_core(
 		const mtk::mateval::error_t error,
 		const unsigned M, const unsigned N, const unsigned K,
-		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t r_major,
+		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t c_major, const mtk::mateval::layout_t r_major,
+		const ACC_T alpha,
 		const A_T*   const a_ptr, const unsigned lda,
 		const B_T*   const b_ptr, const unsigned ldb,
+		const ACC_T beta,
+		const C_T*   const c_ptr, const unsigned ldc,
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
 	const auto num_threads = M * N;
 	const auto grid_size = (num_threads + block_size - 1) / block_size;
+	using acc_t = typename rc_acc_type<REF_T>::type;
 
 	unsigned num_result_elements = 0;
 	if (error & mtk::mateval::relative_residual) {
@@ -222,13 +239,16 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 		h_result[i] = 0.;
 	}
 
-	error_AxB_kernel<A_T, B_T, REF_T><<<grid_size, block_size>>>(
+	error_GEMM_kernel<A_T, B_T, C_T, REF_T, acc_t, acc_t><<<grid_size, block_size>>>(
 			error,
 			h_result,
 			M, N, K,
-			a_major, b_major, r_major,
+			a_major, b_major, c_major, r_major,
+			alpha,
 			a_ptr, lda,
 			b_ptr, ldb,
+			beta,
+			c_ptr, ldc,
 			r_ptr, ldr
 			);
 	cudaDeviceSynchronize();
@@ -285,6 +305,105 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
 	cudaFreeHost(h_result);
 
 	return result;
+}
+
+} // noname namespace
+
+template <class A_T, class B_T, class C_T, class REF_T, class ALPHA_T, class BETA_T>
+mtk::mateval::error_map_t mtk::mateval::cuda::get_error_GEMM(
+		const mtk::mateval::error_t error,
+		const unsigned M, const unsigned N, const unsigned K,
+		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t c_major, const mtk::mateval::layout_t r_major,
+		const ALPHA_T alpha,
+		const A_T*   const a_ptr, const unsigned lda,
+		const B_T*   const b_ptr, const unsigned ldb,
+		const BETA_T beta,
+		const C_T*   const c_ptr, const unsigned ldc,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	using acc_t = typename rc_acc_type<REF_T>::type;
+
+	return get_error_GEMM_core(
+			error,
+			M, N, K,
+			a_major, b_major, c_major, r_major,
+			cast2acc<acc_t>(alpha),
+			a_ptr, lda,
+			b_ptr, ldb,
+			cast2acc<acc_t>(beta),
+			c_ptr, ldc,
+			r_ptr, ldr
+			);
+}
+
+#define GET_ERROR_GEMM_INSTANCE_1(A_T, B_T, C_T, ALPHA_T, BETA_T) \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_GEMM<A_T, B_T, C_T, half  , ALPHA_T, BETA_T>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const ALPHA_T, const A_T* const, const unsigned, const B_T* const, const unsigned, const BETA_T, const C_T* const, const unsigned, const half  * const, const unsigned); \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_GEMM<A_T, B_T, C_T, float , ALPHA_T, BETA_T>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const ALPHA_T, const A_T* const, const unsigned, const B_T* const, const unsigned, const BETA_T, const C_T* const, const unsigned, const float * const, const unsigned); \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_GEMM<A_T, B_T, C_T, double, ALPHA_T, BETA_T>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const ALPHA_T, const A_T* const, const unsigned, const B_T* const, const unsigned, const BETA_T, const C_T* const, const unsigned, const double* const, const unsigned);
+#define GET_ERROR_GEMM_INSTANCE_2(A_T, B_T, ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_1(A_T, B_T, half  , ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_1(A_T, B_T, float , ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_1(A_T, B_T, double, ALPHA_T, BETA_T)
+#define GET_ERROR_GEMM_INSTANCE_3(A_T, ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_2(A_T, half  , ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_2(A_T, float , ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_2(A_T, double, ALPHA_T, BETA_T)
+#define GET_ERROR_GEMM_INSTANCE_4(ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_3(half  , ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_3(float , ALPHA_T, BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_3(double, ALPHA_T, BETA_T)
+#define GET_ERROR_GEMM_INSTANCE_5(BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_4(half  , BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_4(float , BETA_T) \
+	GET_ERROR_GEMM_INSTANCE_4(double, BETA_T)
+#define GET_ERROR_GEMM_INSTANCE_6 \
+	GET_ERROR_GEMM_INSTANCE_5(half  ) \
+	GET_ERROR_GEMM_INSTANCE_5(float ) \
+	GET_ERROR_GEMM_INSTANCE_5(double)
+GET_ERROR_GEMM_INSTANCE_6
+
+#define GET_ERROR_COMPLEX_GEMM_INSTANCE_1(A_T, B_T, C_T, ALPHA_T, BETA_T) \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_GEMM<A_T, B_T, C_T, cuComplex      , ALPHA_T, BETA_T>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const ALPHA_T, const A_T* const, const unsigned, const B_T* const, const unsigned, const BETA_T, const C_T* const, const unsigned, const cuComplex      * const, const unsigned); \
+template mtk::mateval::error_map_t mtk::mateval::cuda::get_error_GEMM<A_T, B_T, C_T, cuDoubleComplex, ALPHA_T, BETA_T>(const mtk::mateval::error_t, const unsigned, const unsigned, const unsigned, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const mtk::mateval::layout_t, const ALPHA_T, const A_T* const, const unsigned, const B_T* const, const unsigned, const BETA_T, const C_T* const, const unsigned, const cuDoubleComplex* const, const unsigned);
+#define GET_ERROR_COMPLEX_GEMM_INSTANCE_2(A_T, B_T, ALPHA_T, BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_1(A_T, B_T, cuComplex      , ALPHA_T, BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_1(A_T, B_T, cuDoubleComplex, ALPHA_T, BETA_T)
+#define GET_ERROR_COMPLEX_GEMM_INSTANCE_3(A_T, ALPHA_T, BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_2(A_T, cuComplex      , ALPHA_T, BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_2(A_T, cuDoubleComplex, ALPHA_T, BETA_T)
+#define GET_ERROR_COMPLEX_GEMM_INSTANCE_4(ALPHA_T, BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_3(cuComplex      , ALPHA_T, BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_3(cuDoubleComplex, ALPHA_T, BETA_T)
+#define GET_ERROR_COMPLEX_GEMM_INSTANCE_5(BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_4(cuComplex      , BETA_T) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_4(cuDoubleComplex, BETA_T)
+#define GET_ERROR_COMPLEX_GEMM_INSTANCE_6 \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_5(cuComplex      ) \
+	GET_ERROR_COMPLEX_GEMM_INSTANCE_5(cuDoubleComplex)
+GET_ERROR_COMPLEX_GEMM_INSTANCE_6
+
+template <class A_T, class B_T, class REF_T>
+mtk::mateval::error_map_t mtk::mateval::cuda::get_error_AxB(
+		const mtk::mateval::error_t error,
+		const unsigned M, const unsigned N, const unsigned K,
+		const mtk::mateval::layout_t a_major, const mtk::mateval::layout_t b_major, const mtk::mateval::layout_t r_major,
+		const A_T*   const a_ptr, const unsigned lda,
+		const B_T*   const b_ptr, const unsigned ldb,
+		const REF_T* const r_ptr, const unsigned ldr
+		) {
+	using acc_t = typename rc_acc_type<REF_T>::type;
+
+	return get_error_GEMM_core(
+			error,
+			M, N, K,
+			a_major, b_major, mtk::mateval::col_major,r_major,
+			acc_t(1.),
+			a_ptr, lda,
+			b_ptr, ldb,
+			acc_t(0.),
+			reinterpret_cast<REF_T*>(0), 0,
+			r_ptr, ldr
+			);
 }
 
 #define GET_ERROR_AXB_INSTANCE_1(A_T, B_T) \
