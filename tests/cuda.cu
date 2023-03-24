@@ -7,30 +7,37 @@ const std::size_t matrix_dim = 1000;
 const std::size_t matrix_ld  = 1200;
 using compute_t = double;
 
-void test_AxB(
+void test_GEMM(
 	const unsigned M,
 	const unsigned N,
 	const unsigned K,
 	const mtk::mateval::layout_t a_major,
 	const mtk::mateval::layout_t b_major,
+	const mtk::mateval::layout_t c_major,
 	const mtk::mateval::layout_t r_major,
 	const unsigned lda,
 	const unsigned ldb,
+	const unsigned ldc,
 	const unsigned ldr,
 	const bool should_be_passed
 	) {
 	const std::size_t a_mem_size = lda * (a_major == mtk::mateval::col_major ? K : M);
 	const std::size_t b_mem_size = ldb * (b_major == mtk::mateval::col_major ? N : K);
+	const std::size_t c_mem_size = ldc * (c_major == mtk::mateval::col_major ? N : M);
 	const std::size_t r_mem_size = ldr * (r_major == mtk::mateval::col_major ? N : M);
 
 	auto mat_a = std::unique_ptr<compute_t[]>(new compute_t [a_mem_size]);
 	auto mat_b = std::unique_ptr<compute_t[]>(new compute_t [b_mem_size]);
+	auto mat_c = std::unique_ptr<compute_t[]>(new compute_t [c_mem_size]);
 	auto mat_r = std::unique_ptr<compute_t[]>(new compute_t [r_mem_size]);
 
-	compute_t *da, *db, *dr;
+	compute_t *da, *db, *dc, *dr;
 	cudaMalloc(&da, sizeof(compute_t) * a_mem_size);
 	cudaMalloc(&db, sizeof(compute_t) * b_mem_size);
+	cudaMalloc(&dc, sizeof(compute_t) * c_mem_size);
 	cudaMalloc(&dr, sizeof(compute_t) * r_mem_size);
+
+	const compute_t alpha = -0.5, beta = 0.5;
 
 	// Set A
 	for (unsigned m = 0; m < M; m++) {
@@ -46,40 +53,57 @@ void test_AxB(
 			mat_b.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(N);
 		}
 	}
+	// Set C
+	for (unsigned m = 0; m < M; m++) {
+		for (unsigned n = 0; n < N; n++) {
+			const auto index = (c_major == mtk::mateval::col_major ? (m + n * ldc) : (m * ldc + n));
+			mat_c.get()[index] = (m + 1) * (n + 1) / static_cast<compute_t>(N);
+		}
+	}
 	// Set ref
 	for (unsigned m = 0; m < M; m++) {
 		for (unsigned n = 0; n < N; n++) {
-			const auto index = (r_major == mtk::mateval::col_major ? (m + n * ldr) : (m * ldr + n));
-			mat_r.get()[index] = static_cast<double>(K * (K + 1) * (2 * K + 1) / 6) * (m + 1) * (n + 1) / static_cast<double>(M * N);
+			const auto r_index = (r_major == mtk::mateval::col_major ? (m + n * ldr) : (m * ldr + n));
+			mat_r.get()[r_index] = static_cast<double>(K * (K + 1) * (2 * K + 1) / 6) * (m + 1) * (n + 1) / static_cast<double>(M * N);
+
+			const auto c_index = (c_major == mtk::mateval::col_major ? (m + n * ldc) : (m * ldc + n));
+			mat_r.get()[r_index] = alpha * mat_r.get()[r_index] + beta * mat_c.get()[c_index];
+
 			if (!should_be_passed) {
-				mat_r.get()[index] *= -1.0f;
+				mat_r.get()[r_index] *= -1.0f;
 			}
 		}
 	}
 
 	cudaMemcpy(da, mat_a.get(), sizeof(compute_t) * a_mem_size, cudaMemcpyDefault);
 	cudaMemcpy(db, mat_b.get(), sizeof(compute_t) * b_mem_size, cudaMemcpyDefault);
+	cudaMemcpy(dc, mat_c.get(), sizeof(compute_t) * c_mem_size, cudaMemcpyDefault);
 	cudaMemcpy(dr, mat_r.get(), sizeof(compute_t) * r_mem_size, cudaMemcpyDefault);
 
-	const auto errors = mtk::mateval::cuda::get_error_AxB(
+	const auto errors = mtk::mateval::cuda::get_error_GEMM(
 		mtk::mateval::max_absolute_error | mtk::mateval::max_relative_error | mtk::mateval::relative_residual | mtk::mateval::avg_relative_error,
 		M, N, K,
-		a_major, b_major, r_major,
+		a_major, b_major, c_major, r_major,
+		alpha,
 		da, lda,
 		db, ldb,
+		beta,
+		dc, ldc,
 		dr, ldr
 		);
 	const auto residual = errors.at(mtk::mateval::relative_residual);
 	const auto max_error = errors.at(mtk::mateval::max_absolute_error);
 	const auto max_relative_error = errors.at(mtk::mateval::max_relative_error);
 	const auto avg_relative_error = errors.at(mtk::mateval::avg_relative_error);
-	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,r_major=%3s} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s), avg_relative_error=%e(%6s)\n",
+	std::printf("[%s]{M=%3u,N=%3u,K=%u,lda=%u,ldb=%u,ldr=%u,a_major=%3s,b_major=%3s,c_major=%3s,r_major=%3s,alpha=%e,beta=%e} residual=%e(%6s), max_error=%e(%6s), max_relative_error=%e(%6s), avg_relative_error=%e(%6s)\n",
 				__func__,
 				M, N, K,
 				lda, ldb, ldr,
 				(a_major == mtk::mateval::col_major ? "col" : "row"),
 				(b_major == mtk::mateval::col_major ? "col" : "row"),
+				(c_major == mtk::mateval::col_major ? "col" : "row"),
 				(r_major == mtk::mateval::col_major ? "col" : "row"),
+				alpha, beta,
 				residual,
 				((residual < 1e-6) == should_be_passed ? "\x1B[32mPASSED\x1B[37m" : "\x1B[31mFAILED\x1B[37m"),
 				max_error,
@@ -303,62 +327,94 @@ void test_orthogonality(
 
 int main() {
 	std::printf("----------- passing test -----------\n");
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
-	test_A_B(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
+	test_A_B(matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, true);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
 	test_UxSxVt(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, true);
@@ -396,38 +452,70 @@ int main() {
 	test_orthogonality(matrix_dim, matrix_dim / 2, mtk::mateval::col_major, matrix_dim, true);
 	test_orthogonality(matrix_dim, matrix_dim / 2, mtk::mateval::row_major, matrix_dim, true);
 	std::printf("--------- failing test ---------\n");
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim / 2, matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim / 2, matrix_dim, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
-	test_AxB(matrix_dim, matrix_dim, matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim / 2, matrix_dim    , matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim / 2, matrix_dim    , mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::col_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
+	test_GEMM(matrix_dim    , matrix_dim    , matrix_dim / 2, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, mtk::mateval::row_major, matrix_ld, matrix_ld, matrix_ld, matrix_ld, false);
 	test_A_B(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, false);
 	test_A_B(matrix_dim, matrix_dim, mtk::mateval::col_major, mtk::mateval::col_major, matrix_ld, matrix_ld, false);
 	test_A_B(matrix_dim, matrix_dim, mtk::mateval::row_major, mtk::mateval::col_major, matrix_ld, matrix_ld, false);
