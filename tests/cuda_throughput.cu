@@ -1,6 +1,6 @@
 #include <iostream>
 #include <chrono>
-#include <mateval/comparison_cuda.hpp>
+#include <mateval/cuda/comparison.hpp>
 
 constexpr auto N = 1lu << 14;
 

@@ -1,8 +1,7 @@
 #ifndef __MATEVAL_CUDA_UTILS__
 #define __MATEVAL_CUDA_UTILS__
-#include <cublas.h>
 #include <cublas_v2.h>
-#include "common.hpp"
+#include "../common.hpp"
 namespace mtk {
 namespace mateval {
 namespace utils {

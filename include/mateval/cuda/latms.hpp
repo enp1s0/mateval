@@ -1,7 +1,7 @@
 #ifndef __MATEVAL_LATMS_CUDA_HPP__
 #define __MATEVAL_LATMS_CUDA_HPP__
 #include <cstdint>
-#include "common.hpp"
+#include "../common.hpp"
 
 namespace mtk {
 namespace mateval {

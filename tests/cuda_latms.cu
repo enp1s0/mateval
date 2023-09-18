@@ -1,5 +1,5 @@
 #include <iostream>
-#include <mateval/latms_cuda.hpp>
+#include <mateval/cuda/latms.hpp>
 #include <mateval/cond.hpp>
 
 namespace {
