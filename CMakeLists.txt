@@ -32,6 +32,7 @@ file(GLOB HEADERS "${INCDIR}/mateval/*.hpp")
 add_library(mateval_cuda STATIC
 	src/comparison_cuda.cu
 	src/minmax_cuda.cu
+	src/norm_cuda.cu
 	${HEADERS}
 	)
 
@@ -88,7 +89,7 @@ if (${BUILD_TEST})
 	set(TESTSRCDIR tests)
 
 	# CU
-	foreach(test cuda cuda_throughput cuda_operation)
+	foreach(test cuda cuda_throughput cuda_operation cuda_norm)
 		set(test_out ${test}.test)
 		add_executable(${test_out} ${TESTSRCDIR}/${test}.cu)
 		target_include_directories(${test_out} PRIVATE ${INCDIR})
@@ -118,7 +119,7 @@ if (${BUILD_TEST})
 	endif()
 
 	# CPP
-	foreach(test comparison util)
+	foreach(test comparison util norm)
 		set(test_out ${test}.test)
 		add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
 		target_include_directories(${test_out} PRIVATE ${INCDIR})

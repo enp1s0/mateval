@@ -1,6 +1,6 @@
 #include <cfloat>
 #include <cuda_fp16.h>
-#include <mateval/minmax_cuda.hpp>
+#include <mateval/cuda/minmax.hpp>
 
 namespace {
 template <class T>

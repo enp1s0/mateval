@@ -1,6 +1,6 @@
 #ifndef __MATEVAL_MINMAX_CUDA_HPP__
 #define __MATEVAL_MINMAX_CUDA_HPP__
-#include "common.hpp"
+#include "../common.hpp"
 
 namespace mtk {
 namespace mateval {

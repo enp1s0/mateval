@@ -1,4 +1,4 @@
-#include <mateval/latms_cuda.hpp>
+#include <mateval/cuda/latms.hpp>
 #include <sstream>
 #include <curand.h>
 #include <cublas_v2.h>

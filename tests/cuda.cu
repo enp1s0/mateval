@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <cublas.h>
-#include <mateval/comparison_cuda.hpp>
+#include <mateval/cuda/comparison.hpp>
 
 const std::size_t matrix_dim = 1000;
 const std::size_t matrix_ld  = 1200;

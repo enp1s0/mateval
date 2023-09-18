@@ -1,7 +1,7 @@
 #include <iostream>
 #include <random>
 #include <cuda_fp16.h>
-#include <mateval/minmax_cuda.hpp>
+#include <mateval/cuda/minmax.hpp>
 
 template <class T>
 const char* get_str();
