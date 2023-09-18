@@ -119,7 +119,7 @@ if (${BUILD_TEST})
 	endif()
 
 	# CPP
-	foreach(test comparison util)
+	foreach(test comparison util norm)
 		set(test_out ${test}.test)
 		add_executable(${test_out} ${TESTSRCDIR}/${test}.cpp)
 		target_include_directories(${test_out} PRIVATE ${INCDIR})

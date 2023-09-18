@@ -30,4 +30,6 @@ void eval(
 int main() {
 	eval<float >(1lu << 10);
 	eval<double>(1lu << 10);
+	eval<float >(1lu << 20);
+	eval<double>(1lu << 20);
 }
