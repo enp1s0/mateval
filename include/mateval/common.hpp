@@ -12,6 +12,7 @@ namespace mateval {
 enum layout_t {
 	col_major = 0,
 	row_major = 1,
+	conj = 2,
 };
 
 inline layout_t inv_major(const layout_t m) {
