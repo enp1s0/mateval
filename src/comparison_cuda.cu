@@ -21,6 +21,12 @@ __device__ __host__ cmplx<T> operator-(const cmplx<T> a, const cmplx<T> b){retur
 template <class T>
 __device__ __host__ cmplx<T> operator*(const cmplx<T> a, const cmplx<T> b){return cmplx<T>{a.x * b.x - a.y * b.y, a.y * b.x + b.y * a.x};}
 
+__device__ __host__ cuComplex conj(const cuComplex& a){return cuComplex{a.x, -a.y};}
+__device__ __host__ cuDoubleComplex conj(const cuDoubleComplex& a){return cuDoubleComplex{a.x, -a.y};}
+__device__ __host__ half conj(const half& a){return a;}
+__device__ __host__ float conj(const float& a){return a;}
+__device__ __host__ double conj(const double& a){return a;}
+
 template <class T>
 struct rc_acc_type {using type = typename mtk::mateval::accumulate_t<T>::type;};
 template <>
@@ -87,8 +93,8 @@ __global__ void error_GEMM_kernel(
 				b_index = col + k * ldb;
 			}
 
-			const auto da = cast2acc<acc_t>(a_ptr[a_index]);
-			const auto db = cast2acc<acc_t>(b_ptr[b_index]);
+			const auto da = cast2acc<acc_t>(a_major == mtk::mateval::conj ? conj(a_ptr[a_index]) : a_ptr[a_index]);
+			const auto db = cast2acc<acc_t>(b_major == mtk::mateval::conj ? conj(b_ptr[b_index]) : b_ptr[b_index]);
 			sum = da * db + sum;
 		}
 
@@ -112,7 +118,7 @@ __global__ void error_GEMM_kernel(
 			r_index = col + row * ldr;
 		}
 
-		base = cast2acc<acc_t>(r_ptr[r_index]);
+		base = cast2acc<acc_t>(r_major == mtk::mateval::conj ? conj(r_ptr[r_index]) : r_ptr[r_index]);
 		diff = sum - base;
 	}
 
@@ -458,7 +464,7 @@ __global__ void error_kernel(
 			a_index = col + row * lda;
 		}
 
-		sum = static_cast<double>(a_ptr[a_index]);
+		sum = static_cast<double>(a_major == mtk::mateval::conj ? conj(a_ptr[a_index]) : a_ptr[a_index]);
 
 		std::size_t r_index;
 		if (r_major == mtk::mateval::col_major) {
@@ -467,7 +473,7 @@ __global__ void error_kernel(
 			r_index = col + row * ldr;
 		}
 
-		base = r_ptr[r_index];
+		base = a_major == mtk::mateval::conj ? conj(r_ptr[r_index]) : r_ptr[r_index];
 		diff = sum - base;
 	}
 
@@ -748,6 +754,9 @@ double mtk::mateval::cuda::residual_UxSxVt(
 		const V_T*   const v_ptr, const unsigned ldv,
 		const REF_T* const r_ptr, const unsigned ldr
 		) {
+	if (u_major == mtk::mateval::conj) throw std::runtime_error("`conj` is not supported for U");
+	if (v_major == mtk::mateval::conj) throw std::runtime_error("`conj` is not supported for V");
+	if (r_major == mtk::mateval::conj) throw std::runtime_error("`conj` is not supported for R");
 	const auto num_threads = M * N;
 	const auto grid_size = (num_threads + block_size - 1) / block_size;
 
