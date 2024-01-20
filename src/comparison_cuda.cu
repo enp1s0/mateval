@@ -1,4 +1,5 @@
 #include <mateval/cuda/comparison.hpp>
+#include <stdexcept>
 #include <cmath>
 #include <cuda_fp16.h>
 #include <cuComplex.h>
