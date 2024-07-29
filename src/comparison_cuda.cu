@@ -241,7 +241,7 @@ mtk::mateval::error_map_t get_error_GEMM_core(
 
 	double *h_result;
 	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
-#pragma omp paralell for
+#pragma omp parallel for
 	for (unsigned i = 0; i < grid_size * num_result_elements; i++) {
 		h_result[i] = 0.;
 	}
@@ -593,7 +593,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 
 	double *h_result;
 	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
-#pragma omp paralell for
+#pragma omp parallel for
 	for (unsigned i = 0; i < grid_size * num_result_elements; i++) {
 		h_result[i] = 0.;
 	}

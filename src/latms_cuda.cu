@@ -107,7 +107,7 @@ __global__ void multiply_usvt(
 
 	const auto i = tid % m;
 	const auto j = tid / m;
-	
+
 	std::size_t gmem_index = 0;
 	if (major == mtk::mateval::col_major) {
 		gmem_index = i + j * ldm;
@@ -164,7 +164,7 @@ void mtk::mateval::cuda::latms(
 
 	curandGenerateUniform_wrapper(curand_generator, mat_u, m * rank);
 	curandGenerateUniform_wrapper(curand_generator, mat_v, rank * n);
-	
+
 	// Destroy generator
 	curandDestroyGenerator(curand_generator);
 
@@ -174,7 +174,7 @@ void mtk::mateval::cuda::latms(
 	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnSetStream(cusolver_handle, cuda_stream));
 	cusolverDnParams_t cusolver_params;
 	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnCreateParams(&cusolver_params));
-	
+
 	// get buffer size
 	std::size_t geqrf_lwork_u_device, geqrf_lwork_v_device;
 	std::size_t geqrf_lwork_u_host, geqrf_lwork_v_host;
