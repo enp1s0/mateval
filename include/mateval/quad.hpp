@@ -106,4 +106,3 @@ CUDA_DEVICE_HOST inline quad_t abs(
 } // namespace mateval
 } // namespace mtk
 #endif
-

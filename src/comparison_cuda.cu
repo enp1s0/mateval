@@ -55,7 +55,7 @@ __device__ __host__ double absmax(const cmplx<T> a) {return max(abs(static_cast<
 template <class T>
 __device__ __host__ double relative_error(const T diff, const T base) {return (static_cast<double>(base) != 0.) ? abs(static_cast<double>(diff) / static_cast<double>(base)) : 0;};
 template <class T>
-__device__ __host__ double relative_error(const cmplx<T> diff, const cmplx<T> base) {return norm2(base) == 0 ? sqrt(norm2(diff) / norm2(base)) : 0;};
+__device__ __host__ double relative_error(const cmplx<T> diff, const cmplx<T> base) {return norm2(base) != 0 ? sqrt(norm2(diff) / norm2(base)) : 0;};
 
 template <class A_T, class B_T, class C_T, class R_T, class ALPHA_T, class BETA_T>
 __global__ void error_GEMM_kernel(
@@ -241,7 +241,7 @@ mtk::mateval::error_map_t get_error_GEMM_core(
 
 	double *h_result;
 	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
-#pragma omp paralell for
+#pragma omp parallel for
 	for (unsigned i = 0; i < grid_size * num_result_elements; i++) {
 		h_result[i] = 0.;
 	}
@@ -301,7 +301,7 @@ mtk::mateval::error_map_t get_error_GEMM_core(
 		result.insert(std::make_pair(mtk::mateval::max_relative_error, max_relative_error));
 	}
 	if (error & mtk::mateval::avg_relative_error) {
-#pragma omp parallel for reduction(max: max_element)
+#pragma omp parallel for reduction(max: sum_relative_error)
 		for (unsigned i = 0; i < grid_size; i++) {
 			sum_relative_error += tmp_result_ptr[i];
 		}
@@ -593,7 +593,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 
 	double *h_result;
 	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
-#pragma omp paralell for
+#pragma omp parallel for
 	for (unsigned i = 0; i < grid_size * num_result_elements; i++) {
 		h_result[i] = 0.;
 	}
