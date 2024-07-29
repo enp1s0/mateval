@@ -194,6 +194,8 @@ int test_GEMM(
 
 	cudaFree(da);
 	cudaFree(db);
+	cudaFree(dc);
+	cudaFree(dr);
 
 	return !(check_relative_residual && check_max_error && check_max_relative_error && check_avg_relative_error);
 }
