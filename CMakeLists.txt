@@ -3,8 +3,7 @@ project(mateval_cuda LANGUAGES CXX CUDA)
 
 set(BUILD_TEST OFF)
 
-find_package(CUDA 10.0 REQUIRED)
-find_package(CUDAToolkit REQUIRED)
+find_package(CUDAToolkit 10.0 REQUIRED)
 
 # CUDA/CXX
 foreach(lang CXX CUDA)
