@@ -3,6 +3,8 @@
 #include <mateval/cuda/norm.hpp>
 #include <mateval/common.hpp>
 
+#include "utils.hpp"
+
 namespace {
 template <class T>
 __global__ void sum_kernel (
@@ -33,20 +35,20 @@ double mtk::mateval::cuda::norm(
 	const auto grid_size = std::min(256lu, (len + block_size - 1) / block_size);
 
 	double* d_sum_ptr;
-	cudaMalloc(&d_sum_ptr, sizeof(double));
-	cudaMemset(d_sum_ptr, 0, sizeof(double));
+	CUDA_CHECK_ERROR(cudaMalloc(&d_sum_ptr, sizeof(double)));
+	CUDA_CHECK_ERROR(cudaMemset(d_sum_ptr, 0, sizeof(double)));
 
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 	sum_kernel<<<grid_size, block_size>>>(
 			d_sum_ptr,
 			array_ptr,
 			len
 		);
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 
 	double sum;
-	cudaMemcpy(&sum, d_sum_ptr, sizeof(double), cudaMemcpyDefault);
-	cudaFree(d_sum_ptr);
+	CUDA_CHECK_ERROR(cudaMemcpy(&sum, d_sum_ptr, sizeof(double), cudaMemcpyDefault));
+	CUDA_CHECK_ERROR(cudaFree(d_sum_ptr));
 
 	return std::sqrt(sum);
 }

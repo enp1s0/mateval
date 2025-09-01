@@ -1,6 +1,7 @@
 #include <cfloat>
 #include <cuda_fp16.h>
 #include <mateval/cuda/minmax.hpp>
+#include "utils.hpp"
 
 namespace {
 template <class T>
@@ -81,19 +82,19 @@ mtk::mateval::error_map_t mtk::mateval::cuda::operate (
 	constexpr auto num_threads = grid_size * block_size;
 
 	if (op & mtk::mateval::op_abs_max) {
-		cudaMallocManaged(&abs_max_ptr, sizeof(double) * num_threads); *abs_max_ptr = DBL_MIN;
+		CUDA_CHECK_ERROR(cudaMallocManaged(&abs_max_ptr, sizeof(double) * num_threads)); *abs_max_ptr = DBL_MIN;
 	}
 	if (op & mtk::mateval::op_abs_min) {
-		cudaMallocManaged(&abs_min_ptr, sizeof(double) * num_threads); *abs_min_ptr = DBL_MAX;
+		CUDA_CHECK_ERROR(cudaMallocManaged(&abs_min_ptr, sizeof(double) * num_threads)); *abs_min_ptr = DBL_MAX;
 	}
 	if (op & mtk::mateval::op_max) {
-		cudaMallocManaged(&max_ptr, sizeof(double) * num_threads); *max_ptr = DBL_MIN;
+		CUDA_CHECK_ERROR(cudaMallocManaged(&max_ptr, sizeof(double) * num_threads)); *max_ptr = DBL_MIN;
 	}
 	if (op & mtk::mateval::op_min) {
-		cudaMallocManaged(&min_ptr, sizeof(double) * num_threads); *min_ptr = DBL_MAX;
+		CUDA_CHECK_ERROR(cudaMallocManaged(&min_ptr, sizeof(double) * num_threads)); *min_ptr = DBL_MAX;
 	}
 
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 	operate_kernel<<<grid_size, block_size>>>(
 		max_ptr, min_ptr,
 		abs_max_ptr, abs_min_ptr,
@@ -103,24 +104,24 @@ mtk::mateval::error_map_t mtk::mateval::cuda::operate (
 		mat_ptr,
 		ld
 		);
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 
 	mtk::mateval::error_map_t res;
 	if (op & mtk::mateval::op_abs_max) {
 		res.insert(std::make_pair(mtk::mateval::op_abs_max, *abs_max_ptr));
-		cudaFree(abs_max_ptr);
+		CUDA_CHECK_ERROR(cudaFree(abs_max_ptr));
 	}
 	if (op & mtk::mateval::op_abs_min) {
 		res.insert(std::make_pair(mtk::mateval::op_abs_min, *abs_min_ptr));
-		cudaFree(abs_min_ptr);
+		CUDA_CHECK_ERROR(cudaFree(abs_min_ptr));
 	}
 	if (op & mtk::mateval::op_max) {
 		res.insert(std::make_pair(mtk::mateval::op_max, *max_ptr));
-		cudaFree(max_ptr);
+		CUDA_CHECK_ERROR(cudaFree(max_ptr));
 	}
 	if (op & mtk::mateval::op_min) {
 		res.insert(std::make_pair(mtk::mateval::op_min, *min_ptr));
-		cudaFree(min_ptr);
+		CUDA_CHECK_ERROR(cudaFree(min_ptr));
 	}
 
 	return res;

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cuda_fp16.h>
 #include <cuComplex.h>
+#include "utils.hpp"
 
 namespace {
 constexpr unsigned block_size = 256;
@@ -240,7 +241,7 @@ mtk::mateval::error_map_t get_error_GEMM_core(
 	}
 
 	double *h_result;
-	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
+	CUDA_CHECK_ERROR(cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements));
 #pragma omp parallel for
 	for (unsigned i = 0; i < grid_size * num_result_elements; i++) {
 		h_result[i] = 0.;
@@ -258,7 +259,7 @@ mtk::mateval::error_map_t get_error_GEMM_core(
 			c_ptr, ldc,
 			r_ptr, ldr
 			);
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 
 	mtk::mateval::error_map_t result;
 
@@ -309,7 +310,7 @@ mtk::mateval::error_map_t get_error_GEMM_core(
 		result.insert(std::make_pair(mtk::mateval::avg_relative_error, sum_relative_error / (M * N)));
 	}
 
-	cudaFreeHost(h_result);
+	CUDA_CHECK_ERROR(cudaFreeHost(h_result));
 
 	return result;
 }
@@ -592,7 +593,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 	}
 
 	double *h_result;
-	cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements);
+	CUDA_CHECK_ERROR(cudaMallocHost(&h_result, grid_size * sizeof(double) * num_result_elements));
 #pragma omp parallel for
 	for (unsigned i = 0; i < grid_size * num_result_elements; i++) {
 		h_result[i] = 0.;
@@ -606,7 +607,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 			a_ptr, lda,
 			r_ptr, ldr
 			);
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 
 	mtk::mateval::error_map_t result;
 
@@ -656,7 +657,7 @@ mtk::mateval::error_map_t mtk::mateval::cuda::get_error(
 		result.insert(std::make_pair(mtk::mateval::avg_relative_error, sum_error / (M * N)));
 	}
 
-	cudaFreeHost(h_result);
+	CUDA_CHECK_ERROR(cudaFreeHost(h_result));
 
 	return result;
 }
@@ -763,8 +764,8 @@ double mtk::mateval::cuda::residual_UxSxVt(
 
 	double *h_base;
 	double *h_diff;
-	cudaMallocHost(&h_base, grid_size * sizeof(double));
-	cudaMallocHost(&h_diff, grid_size * sizeof(double));
+	CUDA_CHECK_ERROR(cudaMallocHost(&h_base, grid_size * sizeof(double)));
+	CUDA_CHECK_ERROR(cudaMallocHost(&h_diff, grid_size * sizeof(double)));
 	for (unsigned i = 0; i < grid_size; i++) {
 		h_diff[i] = 0.;
 		h_base[i] = 0.;
@@ -779,7 +780,7 @@ double mtk::mateval::cuda::residual_UxSxVt(
 			v_ptr, ldv,
 			r_ptr, ldr
 			);
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 
 	double base_norm = 0.0;
 	double diff_norm = 0.0;
@@ -789,8 +790,8 @@ double mtk::mateval::cuda::residual_UxSxVt(
 		diff_norm += h_diff[i];
 	}
 
-	cudaFreeHost(h_base);
-	cudaFreeHost(h_diff);
+	CUDA_CHECK_ERROR(cudaFreeHost(h_base));
+	CUDA_CHECK_ERROR(cudaFreeHost(h_diff));
 
 	return std::sqrt(diff_norm / base_norm);
 }
@@ -859,7 +860,7 @@ double mtk::mateval::cuda::orthogonality(
 	const auto grid_size = (num_threads + block_size - 1) / block_size;
 
 	double *h_diff;
-	cudaMallocHost(&h_diff, grid_size * sizeof(double));
+	CUDA_CHECK_ERROR(cudaMallocHost(&h_diff, grid_size * sizeof(double)));
 	for (unsigned i = 0; i < grid_size; i++) {
 		h_diff[i] = 0.;
 	}
@@ -870,7 +871,7 @@ double mtk::mateval::cuda::orthogonality(
 			major,
 			ptr, ld
 			);
-	cudaDeviceSynchronize();
+	CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 
 	double diff_norm = 0.0;
 #pragma omp parallel for reduction(+: diff_norm)
@@ -878,7 +879,7 @@ double mtk::mateval::cuda::orthogonality(
 		diff_norm += h_diff[i];
 	}
 
-	cudaFreeHost(h_diff);
+	CUDA_CHECK_ERROR(cudaFreeHost(h_diff));
 
 	return std::sqrt(diff_norm / N);
 }
