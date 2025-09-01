@@ -4,6 +4,8 @@
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 
+#include "utils.hpp"
+
 #define MATEVAL_CUSOLVER_CHECK_ERROR(status) check_cusolver_error((status), __FILE__, __LINE__, __func__)
 namespace {
 void check_cusolver_error(
@@ -139,17 +141,17 @@ void mtk::mateval::cuda::latms(
 	// Allocate working memory
 	T *mat_u, *mat_v, *diag_s, *tau;
 	if (working_memory_type == mtk::mateval::cuda::device_memory) {
-		cudaMalloc(&mat_u , sizeof(T) * m * rank);
-		cudaMalloc(&mat_v , sizeof(T) * n * rank);
-		cudaMalloc(&diag_s, sizeof(T) * rank);
-		cudaMalloc(&tau, sizeof(T) * std::max(std::min(rank, m), std::min(rank, n)));
+		CUDA_CHECK_ERROR(cudaMalloc(&mat_u , sizeof(T) * m * rank));
+		CUDA_CHECK_ERROR(cudaMalloc(&mat_v , sizeof(T) * n * rank));
+		CUDA_CHECK_ERROR(cudaMalloc(&diag_s, sizeof(T) * rank));
+		CUDA_CHECK_ERROR(cudaMalloc(&tau, sizeof(T) * std::max(std::min(rank, m), std::min(rank, n))));
 
-		cudaMemcpy(diag_s, d, sizeof(T) * rank, cudaMemcpyDefault);
+		CUDA_CHECK_ERROR(cudaMemcpy(diag_s, d, sizeof(T) * rank, cudaMemcpyDefault));
 	} else {
-		cudaMallocHost(&mat_u , sizeof(T) * m * rank);
-		cudaMallocHost(&mat_v , sizeof(T) * n * rank);
-		cudaMallocHost(&diag_s, sizeof(T) * rank);
-		cudaMallocHost(&tau, sizeof(T) * std::max(std::min(rank, m), std::min(rank, n)));
+		CUDA_CHECK_ERROR(cudaMallocHost(&mat_u , sizeof(T) * m * rank));
+		CUDA_CHECK_ERROR(cudaMallocHost(&mat_v , sizeof(T) * n * rank));
+		CUDA_CHECK_ERROR(cudaMallocHost(&diag_s, sizeof(T) * rank));
+		CUDA_CHECK_ERROR(cudaMallocHost(&tau, sizeof(T) * std::max(std::min(rank, m), std::min(rank, n))));
 
 		for (unsigned i = 0; i < rank; i++) {
 			diag_s[i] = d[i];
@@ -190,17 +192,17 @@ void mtk::mateval::cuda::latms(
 	T* qr_work;
 	int* qr_info;
 	if (working_memory_type == mtk::mateval::cuda::device_memory) {
-		cudaMalloc(&qr_work, sizeof(T) * max_lwork);
-		cudaMalloc(&qr_info, sizeof(int));
+		CUDA_CHECK_ERROR(cudaMalloc(&qr_work, sizeof(T) * max_lwork));
+		CUDA_CHECK_ERROR(cudaMalloc(&qr_info, sizeof(int)));
 	} else {
-		cudaMallocHost(&qr_work, sizeof(T) * max_lwork);
-		cudaMallocHost(&qr_info, sizeof(int));
+		CUDA_CHECK_ERROR(cudaMallocHost(&qr_work, sizeof(T) * max_lwork));
+		CUDA_CHECK_ERROR(cudaMallocHost(&qr_info, sizeof(int)));
 	}
 
 	T* qr_work_host;
 	T* qr_work_device;
-	cudaMalloc(&qr_work_device, sizeof(T) * std::max(geqrf_lwork_u_device, geqrf_lwork_v_device));
-	cudaMallocHost(&qr_work_host, sizeof(T) * std::max(geqrf_lwork_u_host, geqrf_lwork_v_host));
+	CUDA_CHECK_ERROR(cudaMalloc(&qr_work_device, sizeof(T) * std::max(geqrf_lwork_u_device, geqrf_lwork_v_device)));
+	CUDA_CHECK_ERROR(cudaMallocHost(&qr_work_host, sizeof(T) * std::max(geqrf_lwork_u_host, geqrf_lwork_v_host)));
 
 	// Orthogonalize U and V
 	MATEVAL_CUSOLVER_CHECK_ERROR(cusolverDnXgeqrf(
@@ -226,18 +228,18 @@ void mtk::mateval::cuda::latms(
 
 	// Free working memory
 	if (working_memory_type == mtk::mateval::cuda::device_memory) {
-		cudaFree(qr_work);
-		cudaFree(qr_info);
+		CUDA_CHECK_ERROR(cudaFree(qr_work));
+		CUDA_CHECK_ERROR(cudaFree(qr_info));
 	} else {
-		cudaFreeHost(qr_work);
-		cudaFreeHost(qr_info);
+		CUDA_CHECK_ERROR(cudaFreeHost(qr_work));
+		CUDA_CHECK_ERROR(cudaFreeHost(qr_info));
 	}
-	cudaFree(qr_work_device);
-	cudaFreeHost(qr_work_host);
+	CUDA_CHECK_ERROR(cudaFree(qr_work_device));
+	CUDA_CHECK_ERROR(cudaFreeHost(qr_work_host));
 
 	// Multiply U s Vt
 	const auto shared_memory_size = sizeof(T) * rank;
-	cudaFuncSetAttribute(&multiply_usvt<T, T, T>, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_memory_size);
+	CUDA_CHECK_ERROR(cudaFuncSetAttribute(&multiply_usvt<T, T, T>, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_memory_size));
 
 	multiply_usvt<T, T, T><<<(m * n + block_size - 1) / block_size, block_size, shared_memory_size, cuda_stream>>>(
 			m, n,
@@ -250,15 +252,15 @@ void mtk::mateval::cuda::latms(
 			);
 
 	if (working_memory_type == mtk::mateval::cuda::device_memory) {
-		cudaFree(mat_u);
-		cudaFree(mat_v);
-		cudaFree(diag_s);
-		cudaFree(tau);
+		CUDA_CHECK_ERROR(cudaFree(mat_u));
+		CUDA_CHECK_ERROR(cudaFree(mat_v));
+		CUDA_CHECK_ERROR(cudaFree(diag_s));
+		CUDA_CHECK_ERROR(cudaFree(tau));
 	} else {
-		cudaFreeHost(mat_u);
-		cudaFreeHost(mat_v);
-		cudaFreeHost(diag_s);
-		cudaFreeHost(tau);
+		CUDA_CHECK_ERROR(cudaFreeHost(mat_u));
+		CUDA_CHECK_ERROR(cudaFreeHost(mat_v));
+		CUDA_CHECK_ERROR(cudaFreeHost(diag_s));
+		CUDA_CHECK_ERROR(cudaFreeHost(tau));
 	}
 }
 
